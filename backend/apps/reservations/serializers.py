@@ -1,0 +1,149 @@
+from rest_framework import serializers
+from apps.authentication.serializers import UserSerializer
+from apps.hostels.models import Hostel, Room
+from apps.hostels.serializers import RoomListSerializer
+from apps.external_residences.models import ExternalResidence
+from .models import Student, Reservation, ReservationMember, CheckIn, CheckOut
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Student
+        fields = [
+            'id', 'user', 'sex', 'date_of_birth', 'nationality', 'student_number',
+            'program', 'academic_year', 'emergency_contact_name', 'emergency_contact_phone',
+            'documents', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+class StudentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = [
+            'sex', 'date_of_birth', 'nationality', 'student_number',
+            'program', 'academic_year', 'emergency_contact_name',
+            'emergency_contact_phone', 'documents',
+        ]
+
+
+class ReservationMemberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReservationMember
+        fields = [
+            'id', 'full_name', 'sex', 'date_of_birth', 'nationality',
+            'phone_number', 'email', 'student_number', 'program',
+        ]
+
+
+class ReservationListSerializer(serializers.ModelSerializer):
+    requester_name = serializers.CharField(source='requester.user.full_name', read_only=True)
+    hostel_name = serializers.CharField(source='hostel.name', read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'id', 'reservation_number', 'requester_name', 'hostel', 'hostel_name',
+            'is_group', 'number_of_people', 'desired_start_date', 'desired_end_date',
+            'status', 'created_at',
+        ]
+
+
+class ReservationDetailSerializer(serializers.ModelSerializer):
+    requester = StudentSerializer(read_only=True)
+    members = ReservationMemberSerializer(many=True, read_only=True)
+    room_detail = RoomListSerializer(source='room', read_only=True)
+    alternative_room_detail = RoomListSerializer(source='alternative_room', read_only=True)
+    hostel_name = serializers.CharField(source='hostel.name', read_only=True)
+    alternative_hostel_name = serializers.CharField(source='alternative_hostel.name', read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'id', 'reservation_number', 'requester', 'hostel', 'hostel_name',
+            'requested_room_type', 'requested_comfort', 'room', 'room_detail',
+            'is_group', 'number_of_people', 'members',
+            'desired_start_date', 'desired_end_date', 'status', 'rejection_reason',
+            'alternative_hostel', 'alternative_hostel_name', 'alternative_room',
+            'alternative_room_detail', 'alternative_external_residence', 'alternative_note',
+            'handled_by', 'decided_at', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'reservation_number', 'status', 'rejection_reason',
+            'alternative_hostel', 'alternative_room', 'alternative_external_residence',
+            'alternative_note', 'handled_by', 'decided_at', 'created_at', 'updated_at',
+        ]
+
+
+class ReservationCreateSerializer(serializers.ModelSerializer):
+    members = ReservationMemberSerializer(many=True, required=False)
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'hostel', 'requested_room_type', 'requested_comfort', 'room',
+            'is_group', 'number_of_people', 'desired_start_date', 'desired_end_date',
+            'members',
+        ]
+
+    def create(self, validated_data):
+        members_data = validated_data.pop('members', [])
+        student, _ = Student.objects.get_or_create(user=self.context['request'].user)
+        reservation = Reservation.objects.create(requester=student, **validated_data)
+        for member_data in members_data:
+            ReservationMember.objects.create(reservation=reservation, **member_data)
+        return reservation
+
+
+class RejectReservationSerializer(serializers.Serializer):
+    reason = serializers.CharField()
+
+
+class ProposeAlternativeSerializer(serializers.Serializer):
+    alternative_hostel = serializers.PrimaryKeyRelatedField(
+        queryset=Hostel.objects.all(), required=False, allow_null=True,
+    )
+    alternative_room = serializers.PrimaryKeyRelatedField(
+        queryset=Room.objects.all(), required=False, allow_null=True,
+    )
+    alternative_external_residence = serializers.PrimaryKeyRelatedField(
+        queryset=ExternalResidence.objects.all(), required=False, allow_null=True,
+    )
+    note = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        if not any([
+            data.get('alternative_room'),
+            data.get('alternative_hostel'),
+            data.get('alternative_external_residence'),
+        ]):
+            raise serializers.ValidationError(
+                "Précisez au moins une alternative (chambre, hostel ou résidence externe)."
+            )
+        return data
+
+
+class AlternativeResponseSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=['accept', 'refuse', 'request_other'])
+
+
+class CheckInSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CheckIn
+        fields = [
+            'id', 'reservation', 'checked_in_at', 'identity_validated',
+            'key_handed_over', 'room_initial_state', 'performed_by',
+        ]
+        read_only_fields = ['id', 'performed_by']
+
+
+class CheckOutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CheckOut
+        fields = [
+            'id', 'reservation', 'checked_out_at', 'room_verified',
+            'damages_notes', 'additional_fees', 'balance_due', 'closed', 'performed_by',
+        ]
+        read_only_fields = ['id', 'performed_by']

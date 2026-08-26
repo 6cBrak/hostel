@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% include "billing/_pdf_style.html" %}
+</head>
+<body>
+
+  <table class="header-table">
+    <tr>
+      <td style="width: 60%;">
+        {% if settings.logo %}
+          <img class="logo-img" src="{{ settings.logo.path }}">
+        {% else %}
+          <div class="site-name">{{ settings.site_name|default:"SMART HOSTEL ATOMA" }}</div>
+        {% endif %}
+        {% if settings.tagline %}<div class="site-tagline">{{ settings.tagline }}</div>{% endif %}
+        {% if settings.address %}<div class="site-tagline">{{ settings.address }}</div>{% endif %}
+        {% if settings.contact_phone or settings.contact_email %}
+          <div class="site-tagline">
+            {{ settings.contact_phone }}{% if settings.contact_phone and settings.contact_email %} · {% endif %}{{ settings.contact_email }}
+          </div>
+        {% endif %}
+      </td>
+      <td style="width: 40%;">
+        <div class="doc-title">FACTURE PRO-FORMA</div>
+        <div class="doc-number">N° {{ invoice.invoice_number }}</div>
+        <div class="doc-number">Émise le {{ invoice.issued_at|date:"d/m/Y" }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="section-title">Résidence</div>
+  <table class="info-table">
+    <tr><td class="info-label">Hostel</td><td class="info-value">{{ reservation.hostel.name }}</td></tr>
+    {% if reservation.hostel.address %}
+    <tr><td class="info-label">Adresse</td><td class="info-value">{{ reservation.hostel.address }}</td></tr>
+    {% endif %}
+    {% if reservation.hostel.phone_number %}
+    <tr><td class="info-label">Téléphone</td><td class="info-value">{{ reservation.hostel.phone_number }}</td></tr>
+    {% endif %}
+  </table>
+
+  <div class="section-title">Locataire</div>
+  <table class="info-table">
+    <tr><td class="info-label">Nom</td><td class="info-value">{{ reservation.requester.user.full_name }}</td></tr>
+    <tr><td class="info-label">Email</td><td class="info-value">{{ reservation.requester.user.email }}</td></tr>
+    {% if reservation.requester.user.phone_number %}
+    <tr><td class="info-label">Téléphone</td><td class="info-value">{{ reservation.requester.user.phone_number }}</td></tr>
+    {% endif %}
+  </table>
+
+  <div class="section-title">Séjour</div>
+  <table class="info-table">
+    <tr><td class="info-label">Réservation</td><td class="info-value">{{ reservation.reservation_number }}</td></tr>
+    <tr><td class="info-label">Chambre</td><td class="info-value">{{ reservation.room.number }}</td></tr>
+    <tr><td class="info-label">Type</td><td class="info-value">{{ reservation.room.room_type.name }}</td></tr>
+    <tr><td class="info-label">Confort</td><td class="info-value">{{ reservation.room.comfort.name }}</td></tr>
+    <tr>
+      <td class="info-label">Période</td>
+      <td class="info-value">
+        À partir du {{ reservation.desired_start_date|date:"d/m/Y" }}{% if reservation.desired_end_date %} jusqu'au {{ reservation.desired_end_date|date:"d/m/Y" }}{% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <div class="section-title">Montants</div>
+  <table class="amounts-table">
+    <tr>
+      <td class="label">Montant du séjour</td>
+      <td class="value">{{ invoice.stay_amount|floatformat:0 }} FCFA</td>
+    </tr>
+    {% if invoice.additional_fees %}
+    <tr>
+      <td class="label">Frais supplémentaires</td>
+      <td class="value">{{ invoice.additional_fees|floatformat:0 }} FCFA</td>
+    </tr>
+    {% endif %}
+    {% if invoice.deposit_amount %}
+    <tr>
+      <td class="label">Caution</td>
+      <td class="value">{{ invoice.deposit_amount|floatformat:0 }} FCFA</td>
+    </tr>
+    {% endif %}
+    <tr class="total-row">
+      <td class="label">Montant total</td>
+      <td class="value">{{ invoice.total_amount|floatformat:0 }} FCFA</td>
+    </tr>
+    <tr class="paid">
+      <td class="label">Montant déjà payé</td>
+      <td class="value">{{ invoice.amount_paid|floatformat:0 }} FCFA</td>
+    </tr>
+    <tr class="balance">
+      <td class="label">Montant restant</td>
+      <td class="value">{{ invoice.balance_due|floatformat:0 }} FCFA</td>
+    </tr>
+  </table>
+
+  {% if invoice.planned_installments %}
+  <div class="section-title">Échéancier indicatif</div>
+  <table class="amounts-table">
+    {% for step in invoice.planned_installments %}
+    <tr>
+      <td class="label">{{ step.label }}{% if step.due_date %} — {{ step.due_date }}{% endif %}</td>
+      <td class="value">{{ step.amount }} FCFA</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <div class="footer-note">
+    Document généré automatiquement par SMART HOSTEL ATOMA — facture pro-forma, ne constitue pas un reçu de paiement.
+  </div>
+
+</body>
+</html>

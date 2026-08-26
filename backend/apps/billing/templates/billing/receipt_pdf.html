@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+{% include "billing/_pdf_style.html" %}
+</head>
+<body>
+
+  <table class="header-table">
+    <tr>
+      <td style="width: 60%;">
+        {% if settings.logo %}
+          <img class="logo-img" src="{{ settings.logo.path }}">
+        {% else %}
+          <div class="site-name">{{ settings.site_name|default:"SMART HOSTEL ATOMA" }}</div>
+        {% endif %}
+        {% if settings.address %}<div class="site-tagline">{{ settings.address }}</div>{% endif %}
+        {% if settings.contact_phone or settings.contact_email %}
+          <div class="site-tagline">
+            {{ settings.contact_phone }}{% if settings.contact_phone and settings.contact_email %} · {% endif %}{{ settings.contact_email }}
+          </div>
+        {% endif %}
+      </td>
+      <td style="width: 40%;">
+        <div class="doc-title">REÇU DE PAIEMENT</div>
+        <div class="doc-number">N° {{ receipt.receipt_number }}</div>
+        <div class="doc-number">Émis le {{ receipt.issued_at|date:"d/m/Y" }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="section-title">Locataire</div>
+  <table class="info-table">
+    <tr><td class="info-label">Nom</td><td class="info-value">{{ invoice.reservation.requester.user.full_name }}</td></tr>
+    <tr><td class="info-label">Facture</td><td class="info-value">{{ invoice.invoice_number }}</td></tr>
+    <tr><td class="info-label">Réservation</td><td class="info-value">{{ invoice.reservation.reservation_number }}</td></tr>
+  </table>
+
+  <div class="section-title">Détail du paiement</div>
+  <table class="amounts-table">
+    <tr>
+      <td class="label">Date</td>
+      <td class="value">{{ payment.date|date:"d/m/Y" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Type</td>
+      <td class="value">{{ payment.get_payment_type_display }}</td>
+    </tr>
+    <tr>
+      <td class="label">Mode de paiement</td>
+      <td class="value">{{ payment.get_payment_method_display }}</td>
+    </tr>
+    {% if payment.reference %}
+    <tr>
+      <td class="label">Référence</td>
+      <td class="value">{{ payment.reference }}</td>
+    </tr>
+    {% endif %}
+    <tr class="total-row">
+      <td class="label">Montant payé</td>
+      <td class="value">{{ payment.amount|floatformat:0 }} FCFA</td>
+    </tr>
+  </table>
+
+  <div class="section-title">Situation de la facture</div>
+  <table class="amounts-table">
+    <tr>
+      <td class="label">Montant total de la facture</td>
+      <td class="value">{{ invoice.total_amount|floatformat:0 }} FCFA</td>
+    </tr>
+    <tr class="paid">
+      <td class="label">Total payé à ce jour</td>
+      <td class="value">{{ invoice.amount_paid|floatformat:0 }} FCFA</td>
+    </tr>
+    <tr class="balance">
+      <td class="label">Solde restant</td>
+      <td class="value">{{ invoice.balance_due|floatformat:0 }} FCFA</td>
+    </tr>
+  </table>
+
+  <div class="footer-note">
+    Reçu généré automatiquement par SMART HOSTEL ATOMA — à conserver comme preuve de paiement.
+  </div>
+
+</body>
+</html>
