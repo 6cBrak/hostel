@@ -1,8 +1,10 @@
+import re
+
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
-from django.conf.urls.static import static
 from django.http import FileResponse, Http404
+from django.views.static import serve as serve_static
 
 
 def react_index(request, *args, **kwargs):
@@ -25,4 +27,15 @@ urlpatterns = [
     re_path(r'^(?!api/|admin/|media/|static/).*$', react_index),
 ]
 
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# django.conf.urls.static.static() sert /media/ uniquement quand DEBUG=True — hors
+# de propos ici puisque ce projet n'a pas de serveur web (nginx…) devant Gunicorn
+# pour prendre le relais en production. On enregistre donc la vue explicitement,
+# sans condition sur DEBUG (même mécanisme que static(), sans le garde-fou).
+urlpatterns += [
+    re_path(
+        r'^%s(?P<path>.*)$' % re.escape(settings.MEDIA_URL.lstrip('/')),
+        serve_static,
+        {'document_root': settings.MEDIA_ROOT},
+    ),
+]
