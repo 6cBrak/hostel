@@ -61,12 +61,35 @@ export default function Register() {
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
-        <input
-          placeholder="Nationalité"
-          className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-brand-500"
-          value={form.nationality}
-          onChange={(e) => setForm({ ...form, nationality: e.target.value })}
-        />
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Nationalité
+          <select
+            className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal outline-none focus:border-brand-500"
+            value={form.nationality}
+            onChange={(e) => {
+              const name = e.target.value
+              const country = COUNTRY_CODES.find((c) => c.name === name)
+              setForm({
+                ...form,
+                nationality: name,
+                dial_code: country?.dial || form.dial_code,
+              })
+            }}
+          >
+            <option value="">— Sélectionner —</option>
+            {COUNTRY_CODES.map((c) =>
+              c.dial ? (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ) : (
+                <option key="sep" disabled>
+                  ──────────
+                </option>
+              )
+            )}
+          </select>
+        </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Date de naissance
           <input
