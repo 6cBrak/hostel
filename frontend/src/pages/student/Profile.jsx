@@ -8,6 +8,7 @@ import {
   deleteMyDocument,
 } from '../../api/reservations'
 import { useAuth } from '../../context/AuthContext'
+import { COUNTRY_CODES } from '../../lib/countryCodes'
 
 export default function Profile() {
   const { user, setUser, isStudent, loading } = useAuth()
@@ -177,11 +178,27 @@ function AcademicSection() {
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Nationalité
-          <input
+          <select
             value={form.nationality}
             onChange={(e) => setForm({ ...form, nationality: e.target.value })}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
-          />
+          >
+            <option value="">— Sélectionner —</option>
+            {form.nationality && !COUNTRY_CODES.some((c) => c.name === form.nationality) && (
+              <option value={form.nationality}>{form.nationality}</option>
+            )}
+            {COUNTRY_CODES.map((c) =>
+              c.dial ? (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ) : (
+                <option key="sep" disabled>
+                  ──────────
+                </option>
+              )
+            )}
+          </select>
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Numéro étudiant / matricule
