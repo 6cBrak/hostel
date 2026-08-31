@@ -43,17 +43,29 @@ class SelfUpdateSerializer(serializers.ModelSerializer):
 
 
 class StudentRegisterSerializer(serializers.ModelSerializer):
-    """Auto-inscription publique — toujours créée avec le rôle 'student'."""
+    """Auto-inscription publique — toujours créée avec le rôle 'student'.
+    Capture aussi la nationalité et la date de naissance (profil étudiant) dès
+    l'inscription plutôt que de les laisser vides jusqu'à un futur passage sur
+    « Mon profil »."""
 
     password = serializers.CharField(write_only=True, min_length=8)
+    nationality = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=80)
+    date_of_birth = serializers.DateField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ['email', 'full_name', 'phone_number', 'password']
+        fields = ['email', 'full_name', 'phone_number', 'password', 'nationality', 'date_of_birth']
 
     def create(self, validated_data):
+        nationality = validated_data.pop('nationality', '')
+        date_of_birth = validated_data.pop('date_of_birth', None)
         validated_data['role'] = User.Role.STUDENT
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data)
+
+        from apps.reservations.models import Student
+        Student.objects.create(user=user, nationality=nationality, date_of_birth=date_of_birth)
+
+        return user
 
 
 class LoginSerializer(serializers.Serializer):

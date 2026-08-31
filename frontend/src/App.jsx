@@ -18,6 +18,7 @@ import RequireStaff from './components/RequireStaff'
 import RequireAdmin from './components/RequireAdmin'
 import AdminLayout from './pages/admin/AdminLayout'
 import ReservationsQueue from './pages/admin/ReservationsQueue'
+import TenantsList from './pages/admin/TenantsList'
 import ReservationDetailAdmin from './pages/admin/ReservationDetailAdmin'
 import InvoicesQueue from './pages/admin/InvoicesQueue'
 import InvoiceDetailAdmin from './pages/admin/InvoiceDetailAdmin'
@@ -66,6 +67,7 @@ export default function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="reservations" element={<ReservationsQueue />} />
                 <Route path="reservations/:id" element={<ReservationDetailAdmin />} />
+                <Route path="locataires" element={<TenantsList />} />
                 <Route path="factures" element={<InvoicesQueue />} />
                 <Route path="factures/:id" element={<InvoiceDetailAdmin />} />
                 <Route path="hostels" element={<HostelsList />} />

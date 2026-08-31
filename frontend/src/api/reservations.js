@@ -2,6 +2,7 @@ import api from './axios'
 
 export const listMyReservations = () => api.get('/reservations/')
 export const listReservations = (params) => api.get('/reservations/', { params })
+export const listTenants = (params) => api.get('/reservations/tenants/', { params })
 export const getReservation = (id) => api.get(`/reservations/${id}/`)
 export const createReservation = (payload) => api.post('/reservations/', payload)
 export const respondAlternative = (id, decision) =>

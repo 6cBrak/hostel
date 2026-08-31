@@ -164,6 +164,23 @@ class ReservationViewSet(viewsets.ModelViewSet):
                 reservation=reservation,
             )
 
+    @action(detail=False, methods=['get'], permission_classes=[IsStaff])
+    def tenants(self, request):
+        """Étudiants ayant une réservation active avec chambre assignée — pour le
+        suivi des locataires (durée, date de fin, jours restants, relance)."""
+        from django.db.models import F
+
+        queryset = self.filter_queryset(
+            self.get_queryset()
+            .filter(status=Reservation.Status.ACCEPTED, room__isnull=False)
+            .order_by(F('desired_end_date').asc(nulls_last=True))
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = ReservationListSerializer(page if page is not None else queryset, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'], permission_classes=[IsStaff])
     def accept(self, request, pk=None):
         reservation = self.get_object()

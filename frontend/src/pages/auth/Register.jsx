@@ -3,18 +3,33 @@ import { useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { register } from '../../api/auth'
 import { useAuth } from '../../context/AuthContext'
+import { COUNTRY_CODES, DEFAULT_COUNTRY_DIAL } from '../../lib/countryCodes'
 
 export default function Register() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ full_name: '', email: '', phone_number: '', password: '' })
+  const [form, setForm] = useState({
+    full_name: '',
+    email: '',
+    nationality: '',
+    date_of_birth: '',
+    dial_code: DEFAULT_COUNTRY_DIAL,
+    phone_local: '',
+    password: '',
+  })
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
     try {
-      const { data } = await register(form)
+      const { dial_code, phone_local, ...rest } = form
+      const payload = {
+        ...rest,
+        phone_number: phone_local.trim() ? `${dial_code} ${phone_local.trim()}` : '',
+        date_of_birth: form.date_of_birth || null,
+      }
+      const { data } = await register(payload)
       signIn(data.user, data.access, data.refresh)
       toast.success('Compte créé avec succès')
       navigate('/')
@@ -47,11 +62,48 @@ export default function Register() {
           onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
         <input
-          placeholder="Téléphone"
+          placeholder="Nationalité"
           className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-brand-500"
-          value={form.phone_number}
-          onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+          value={form.nationality}
+          onChange={(e) => setForm({ ...form, nationality: e.target.value })}
         />
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Date de naissance
+          <input
+            type="date"
+            className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal outline-none focus:border-brand-500"
+            value={form.date_of_birth}
+            onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Téléphone WhatsApp
+          <div className="flex gap-2">
+            <select
+              className="w-24 min-w-0 shrink-0 rounded-md border border-gray-300 px-1 py-2 text-sm font-normal outline-none focus:border-brand-500 sm:w-36 sm:px-2"
+              value={form.dial_code}
+              onChange={(e) => setForm({ ...form, dial_code: e.target.value })}
+            >
+              {COUNTRY_CODES.map((c) =>
+                c.dial ? (
+                  <option key={c.name} value={c.dial}>
+                    {c.name} ({c.dial})
+                  </option>
+                ) : (
+                  <option key="sep" disabled>
+                    ──────────
+                  </option>
+                )
+              )}
+            </select>
+            <input
+              placeholder="70 00 00 00"
+              className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-base font-normal outline-none focus:border-brand-500"
+              value={form.phone_local}
+              onChange={(e) => setForm({ ...form, phone_local: e.target.value })}
+            />
+          </div>
+        </label>
         <input
           type="password"
           required

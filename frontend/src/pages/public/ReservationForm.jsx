@@ -18,7 +18,7 @@ export default function ReservationForm() {
     is_group: false,
     number_of_people: 1,
     desired_start_date: '',
-    desired_end_date: '',
+    duration_months: 1,
   })
   const [members, setMembers] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -94,7 +94,6 @@ export default function ReservationForm() {
         requested_room_type: room.room_type,
         requested_comfort: room.comfort,
         ...form,
-        desired_end_date: form.desired_end_date || null,
         members: form.is_group ? members : [],
       })
       toast.success(`Demande ${data.reservation_number} envoyée !`)
@@ -130,12 +129,15 @@ export default function ReservationForm() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          Date de sortie (optionnel)
+          Durée souhaitée (en mois)
           <input
-            type="date"
+            type="number"
+            min="1"
+            max="36"
+            required
             className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-brand-500"
-            value={form.desired_end_date}
-            onChange={(e) => setForm({ ...form, desired_end_date: e.target.value })}
+            value={form.duration_months}
+            onChange={(e) => setForm({ ...form, duration_months: Number(e.target.value) })}
           />
         </label>
 

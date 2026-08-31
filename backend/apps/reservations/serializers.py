@@ -1,9 +1,10 @@
+from django.utils import timezone
 from rest_framework import serializers
 from apps.authentication.serializers import UserSerializer
 from apps.hostels.models import Hostel, Room
 from apps.hostels.serializers import RoomListSerializer
 from apps.external_residences.models import ExternalResidence
-from .models import Student, Reservation, ReservationMember, CheckIn, CheckOut
+from .models import Student, Reservation, ReservationMember, CheckIn, CheckOut, add_months
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -40,15 +41,24 @@ class ReservationMemberSerializer(serializers.ModelSerializer):
 
 class ReservationListSerializer(serializers.ModelSerializer):
     requester_name = serializers.CharField(source='requester.user.full_name', read_only=True)
+    requester_phone = serializers.CharField(source='requester.user.phone_number', read_only=True)
     hostel_name = serializers.CharField(source='hostel.name', read_only=True)
+    room_number = serializers.CharField(source='room.number', read_only=True)
+    days_remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
         fields = [
-            'id', 'reservation_number', 'requester_name', 'hostel', 'hostel_name',
-            'is_group', 'number_of_people', 'desired_start_date', 'desired_end_date',
-            'status', 'created_at',
+            'id', 'reservation_number', 'requester_name', 'requester_phone',
+            'hostel', 'hostel_name', 'room', 'room_number',
+            'is_group', 'number_of_people', 'desired_start_date', 'duration_months',
+            'desired_end_date', 'days_remaining', 'status', 'created_at',
         ]
+
+    def get_days_remaining(self, obj):
+        if not obj.desired_end_date:
+            return None
+        return (obj.desired_end_date - timezone.localdate()).days
 
 
 class ReservationDetailSerializer(serializers.ModelSerializer):
@@ -58,6 +68,7 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
     alternative_room_detail = RoomListSerializer(source='alternative_room', read_only=True)
     hostel_name = serializers.CharField(source='hostel.name', read_only=True)
     alternative_hostel_name = serializers.CharField(source='alternative_hostel.name', read_only=True)
+    days_remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
@@ -65,7 +76,8 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
             'id', 'reservation_number', 'requester', 'hostel', 'hostel_name',
             'requested_room_type', 'requested_comfort', 'room', 'room_detail',
             'is_group', 'number_of_people', 'members',
-            'desired_start_date', 'desired_end_date', 'status', 'rejection_reason',
+            'desired_start_date', 'duration_months', 'desired_end_date', 'days_remaining',
+            'status', 'rejection_reason',
             'alternative_hostel', 'alternative_hostel_name', 'alternative_room',
             'alternative_room_detail', 'alternative_external_residence', 'alternative_note',
             'handled_by', 'decided_at', 'created_at', 'updated_at',
@@ -76,21 +88,30 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
             'alternative_note', 'handled_by', 'decided_at', 'created_at', 'updated_at',
         ]
 
+    def get_days_remaining(self, obj):
+        if not obj.desired_end_date:
+            return None
+        return (obj.desired_end_date - timezone.localdate()).days
+
 
 class ReservationCreateSerializer(serializers.ModelSerializer):
     members = ReservationMemberSerializer(many=True, required=False)
+    duration_months = serializers.IntegerField(min_value=1, max_value=36)
 
     class Meta:
         model = Reservation
         fields = [
             'hostel', 'requested_room_type', 'requested_comfort', 'room',
-            'is_group', 'number_of_people', 'desired_start_date', 'desired_end_date',
+            'is_group', 'number_of_people', 'desired_start_date', 'duration_months',
             'members',
         ]
 
     def create(self, validated_data):
         members_data = validated_data.pop('members', [])
         student, _ = Student.objects.get_or_create(user=self.context['request'].user)
+        validated_data['desired_end_date'] = add_months(
+            validated_data['desired_start_date'], validated_data['duration_months']
+        )
         reservation = Reservation.objects.create(requester=student, **validated_data)
         for member_data in members_data:
             ReservationMember.objects.create(reservation=reservation, **member_data)

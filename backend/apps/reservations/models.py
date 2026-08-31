@@ -1,6 +1,18 @@
+from calendar import monthrange
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+
+
+def add_months(source_date, months):
+    """Ajoute un nombre de mois à une date, en bornant le jour à la fin du mois cible
+    (ex: 31 janvier + 1 mois -> 28/29 février)."""
+    month_index = source_date.month - 1 + months
+    year = source_date.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(source_date.day, monthrange(year, month)[1])
+    return source_date.replace(year=year, month=month, day=day)
 
 
 class Student(models.Model):
@@ -68,6 +80,9 @@ class Reservation(models.Model):
     number_of_people = models.PositiveSmallIntegerField(default=1)
 
     desired_start_date = models.DateField()
+    duration_months = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Durée souhaitée (en mois)'
+    )
     desired_end_date = models.DateField(null=True, blank=True)
 
     status = models.CharField(max_length=25, choices=Status.choices, default=Status.PENDING)
