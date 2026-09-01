@@ -32,7 +32,8 @@ fi
 
 # ── Lecture des identifiants (.env, sans casser les valeurs contenant un '=') ─
 read_env() {
-    grep -m1 "^$1=" "$APP_DIR/.env" 2>/dev/null | cut -d= -f2- | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'
+    # '|| true' : une clé absente/commentée ne doit pas faire échouer le script (pipefail)
+    { grep -m1 "^$1=" "$APP_DIR/.env" 2>/dev/null || true; } | cut -d= -f2- | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'
 }
 DB_PASSWORD=$(read_env DB_PASSWORD)
 DB_NAME=$(read_env DB_NAME)
@@ -86,7 +87,8 @@ docker compose exec -T db mysqldump \
 
 # ── Contrôle d'intégrité de l'archive ────────────────────────────────────────
 gzip -t "$BACKUP_FILE" 2>>"$LOG_FILE" || fail "archive gzip corrompue"
-[ "$(gzip -dc "$BACKUP_FILE" | head -c 1 | wc -c)" -eq 1 ] || fail "dump vide"
+FIRST_BYTE=$(gzip -dc "$BACKUP_FILE" 2>/dev/null | head -c 1 || true)
+[ -n "$FIRST_BYTE" ] || fail "dump vide"
 
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 SIZE_MB=$(( $(stat -c%s "$BACKUP_FILE") / 1024 / 1024 ))
