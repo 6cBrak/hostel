@@ -162,8 +162,8 @@ fi
 echo ""
 echo -e "${BLUE}[6/6] Backup automatique...${NC}"
 chmod +x deploy/backup.sh
-(crontab -l 2>/dev/null; echo "0 3 * * * /bin/bash /opt/hostelatoma/deploy/backup.sh") | crontab -
-echo -e "${GREEN}  OK : Backup automatique configuré (3h00 chaque nuit)${NC}"
+(crontab -l 2>/dev/null; echo "5 4 * * * /bin/bash /opt/hostelatoma/deploy/backup.sh") | crontab -
+echo -e "${GREEN}  OK : Backup automatique configuré (4h05 chaque nuit)${NC}"
 
 echo ""
 echo -e "${BLUE}[6/6] Synchronisation automatique des chambres occupées...${NC}"
