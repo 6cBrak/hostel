@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { updateSiteSettings } from '../../../api/settings'
+import { updateSiteSettings, downloadTenantsResetBackup, resetTenantsData } from '../../../api/settings'
 import { useSiteSettings } from '../../../context/SiteSettingsContext'
 
 const EMPTY = {
@@ -21,6 +21,13 @@ export default function CompanySettings() {
   const [logo, setLogo] = useState(null)
   const [favicon, setFavicon] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const [downloadingBackup, setDownloadingBackup] = useState(false)
+  const [backupDownloaded, setBackupDownloaded] = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [resetting, setResetting] = useState(false)
+  const [resetSummary, setResetSummary] = useState(null)
 
   useEffect(() => {
     if (!settings) return
@@ -56,6 +63,44 @@ export default function CompanySettings() {
       toast.error(errors ? Object.values(errors).flat().join(' ') : 'Erreur lors de l’enregistrement.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDownloadBackup = async () => {
+    setDownloadingBackup(true)
+    try {
+      const response = await downloadTenantsResetBackup()
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `sauvegarde_locataires_${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setBackupDownloaded(true)
+      toast.success('Sauvegarde téléchargée.')
+    } catch {
+      toast.error('Échec du téléchargement de la sauvegarde.')
+    } finally {
+      setDownloadingBackup(false)
+    }
+  }
+
+  const handleConfirmReset = async () => {
+    if (confirmText !== 'SUPPRIMER') return
+    setResetting(true)
+    try {
+      const { data } = await resetTenantsData(confirmText)
+      setResetSummary(data)
+      setShowResetModal(false)
+      setConfirmText('')
+      setBackupDownloaded(false)
+      toast.success('Données locataires réinitialisées.')
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Échec de la réinitialisation.')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -199,6 +244,84 @@ export default function CompanySettings() {
           {submitting ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
+
+      <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-red-700">Zone de danger</h2>
+        <p className="mt-1 text-sm text-red-700">
+          Supprime définitivement toutes les réservations, factures, paiements, reçus et comptes
+          étudiants (locataires), et remet les chambres concernées à "Disponible". Les hostels,
+          chambres, tarifs, référentiels et comptes non-étudiants (admin, gestionnaire, comptable,
+          agent d'accueil) ne sont pas touchés. <strong>Action irréversible.</strong>
+        </p>
+
+        {resetSummary && (
+          <p className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-gray-700">
+            {resetSummary.reservations_supprimees} réservation(s), {resetSummary.etudiants_supprimes}{' '}
+            étudiant(s) supprimé(s) — {resetSummary.chambres_reinitialisees} chambre(s) remise(s) à
+            Disponible.
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadBackup}
+            disabled={downloadingBackup}
+            className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+          >
+            {downloadingBackup ? 'Préparation…' : '1. Télécharger une sauvegarde'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowResetModal(true)}
+            disabled={!backupDownloaded}
+            title={!backupDownloaded ? 'Téléchargez d\'abord une sauvegarde' : ''}
+            className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            2. Réinitialiser les données locataires
+          </button>
+        </div>
+      </div>
+
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">Confirmer la réinitialisation</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Cette action supprime définitivement toutes les réservations, factures, paiements,
+              reçus et comptes étudiants. Elle est irréversible. Pour continuer, tapez{' '}
+              <strong>SUPPRIMER</strong> ci-dessous.
+            </p>
+            <input
+              autoFocus
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="SUPPRIMER"
+              className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-red-500"
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetModal(false)
+                  setConfirmText('')
+                }}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReset}
+                disabled={confirmText !== 'SUPPRIMER' || resetting}
+                className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {resetting ? 'Suppression…' : 'Supprimer définitivement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
