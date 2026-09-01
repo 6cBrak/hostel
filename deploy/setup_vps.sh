@@ -166,6 +166,11 @@ chmod +x deploy/backup.sh
 echo -e "${GREEN}  OK : Backup automatique configuré (3h00 chaque nuit)${NC}"
 
 echo ""
+echo -e "${BLUE}[6/6] Synchronisation automatique des chambres occupées...${NC}"
+(crontab -l 2>/dev/null; echo "0 1 * * * cd /opt/hostelatoma && docker compose exec -T django python manage.py sync_room_occupancy") | crontab -
+echo -e "${GREEN}  OK : Synchronisation planifiée chaque nuit à 1h00${NC}"
+
+echo ""
 echo -e "${GREEN}"
 echo "  ======================================================"
 echo "   INSTALLATION TERMINÉE AVEC SUCCÈS !"

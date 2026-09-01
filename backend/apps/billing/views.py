@@ -4,6 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
+from apps.reservations.services import sync_room_occupancy_for_reservation
 from .models import Invoice, Payment, Receipt
 from .pdf import generate_receipt_pdf
 from .permissions import IsStaffOrOwnerReadOnly
@@ -79,6 +80,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 f"Il vous reste {invoice.balance_due} à régler sur la facture {invoice.invoice_number}.",
                 reservation=invoice.reservation,
             )
+
+        # Un paiement (même partiel) déclenche le passage de la chambre en
+        # 'Occupée' si la date d'arrivée souhaitée est déjà atteinte.
+        sync_room_occupancy_for_reservation(invoice.reservation)
 
 
 class ReceiptViewSet(viewsets.ReadOnlyModelViewSet):

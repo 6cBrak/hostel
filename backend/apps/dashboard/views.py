@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from apps.authentication.permissions import IsStaff
 from apps.hostels.models import Hostel, Room
 from apps.reservations.models import Reservation, Student
+from apps.reservations.services import sync_all_pending_room_occupancy
 from apps.billing.models import Invoice, Payment
 
 
@@ -14,6 +15,11 @@ class DashboardStatsView(APIView):
     permission_classes = [IsStaff]
 
     def get(self, request):
+        # Rattrapage : bascule les chambres dont la date d'arrivée est atteinte
+        # et qui ont déjà reçu un paiement (au cas où personne n'a déclenché
+        # la vérification depuis, ex. paiement enregistré avant l'arrivée).
+        sync_all_pending_room_occupancy()
+
         hostels = Hostel.objects.filter(is_active=True)
         rooms = Room.objects.all()
 
