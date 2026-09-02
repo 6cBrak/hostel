@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { listRooms, listHostels, deleteRoom } from '../../../api/hostels'
-import { ROOM_STATUS_LABELS, ROOM_STATUS_TONES } from '../../../lib/roomLabels'
+import {
+  ROOM_STATUS_LABELS, ROOM_STATUS_TONES, OCCUPANCY_STATUS_LABELS, OCCUPANCY_STATUS_TONES,
+} from '../../../lib/roomLabels'
 import { useAdminList } from '../../../hooks/useAdminList'
 import SearchInput from '../../../components/admin/SearchInput'
 import Pagination from '../../../components/admin/Pagination'
@@ -95,15 +97,16 @@ export default function RoomsList() {
               <th className="px-4 py-3">Numéro</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Confort</th>
+              <th className="px-4 py-3">Lits</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-500">Chargement…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">Chargement…</td></tr>
             ) : rooms.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-500">Aucune chambre.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">Aucune chambre.</td></tr>
             ) : (
               rooms.map((room) => (
                 <tr key={room.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
@@ -111,6 +114,16 @@ export default function RoomsList() {
                   <td className="px-4 py-3 font-medium text-gray-900">{room.number}</td>
                   <td className="px-4 py-3">{room.room_type_name}</td>
                   <td className="px-4 py-3">{room.comfort_name}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-gray-700">{room.beds_available}/{room.beds_count} libre(s)</span>
+                      <span
+                        className={`w-fit rounded px-2 py-0.5 text-xs font-medium ${OCCUPANCY_STATUS_TONES[room.occupancy_status]}`}
+                      >
+                        {OCCUPANCY_STATUS_LABELS[room.occupancy_status] || room.occupancy_status}
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded px-2 py-0.5 text-xs font-medium ${ROOM_STATUS_TONES[room.status]}`}>
                       {ROOM_STATUS_LABELS[room.status] || room.status}

@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
         isStudent: user?.role === 'student',
         isStaff: !!user && user.role !== 'student',
         isAdmin: user?.role === 'admin',
+        canManageFinance: ['admin', 'manager', 'accountant'].includes(user?.role),
       }}
     >
       {children}

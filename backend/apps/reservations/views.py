@@ -3,6 +3,7 @@ import uuid
 
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -108,6 +109,15 @@ class MyStudentDocumentsView(APIView):
         return Response(StudentSerializer(profile).data)
 
 
+def _other_beds_taken(room, reservation):
+    """Lits déjà engagés sur cette chambre par d'AUTRES réservations actives
+    (accepted/confirmed) — sert à valider une affectation sans compter deux
+    fois la réservation qu'on est en train de traiter."""
+    return room.reservations.filter(
+        status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
+    ).exclude(pk=reservation.pk).aggregate(total=Sum('beds_reserved'))['total'] or 0
+
+
 class ReservationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
@@ -196,14 +206,25 @@ class ReservationViewSet(viewsets.ModelViewSet):
         if not room:
             return Response({'detail': 'Aucune chambre sélectionnée pour cette réservation.'}, status=400)
 
+        if room.status != Room.Status.AVAILABLE:
+            return Response(
+                {'detail': f"Chambre indisponible ({room.get_status_display()})."}, status=400
+            )
+
+        beds_reserved = int(request.data.get('beds_reserved') or reservation.beds_reserved or 1)
+        already_taken = _other_beds_taken(room, reservation)
+        if already_taken + beds_reserved > room.beds_count:
+            remaining = max(room.beds_count - already_taken, 0)
+            return Response(
+                {'detail': f"Plus que {remaining} lit(s) disponible(s) dans cette chambre."}, status=400
+            )
+
         reservation.room = room
+        reservation.beds_reserved = beds_reserved
         reservation.status = Reservation.Status.ACCEPTED
         reservation.handled_by = request.user
         reservation.decided_at = timezone.now()
         reservation.save()
-
-        room.status = Room.Status.RESERVED
-        room.save(update_fields=['status'])
 
         from apps.billing.services import generate_proforma_invoice
         invoice = generate_proforma_invoice(reservation)
@@ -294,14 +315,26 @@ class ReservationViewSet(viewsets.ModelViewSet):
         decision = serializer.validated_data['decision']
 
         if decision == 'accept':
+            room = reservation.alternative_room
+            if room:
+                if room.status != Room.Status.AVAILABLE:
+                    return Response(
+                        {'detail': f"Chambre indisponible ({room.get_status_display()})."}, status=400
+                    )
+                beds_reserved = reservation.beds_reserved or 1
+                already_taken = _other_beds_taken(room, reservation)
+                if already_taken + beds_reserved > room.beds_count:
+                    remaining = max(room.beds_count - already_taken, 0)
+                    return Response(
+                        {'detail': f"Plus que {remaining} lit(s) disponible(s) dans cette chambre."}, status=400
+                    )
+                reservation.beds_reserved = beds_reserved
+
             reservation.hostel = reservation.alternative_hostel or reservation.hostel
-            reservation.room = reservation.alternative_room
+            reservation.room = room
             reservation.status = Reservation.Status.ACCEPTED
             reservation.decided_at = timezone.now()
             reservation.save()
-            if reservation.room:
-                reservation.room.status = Room.Status.RESERVED
-                reservation.room.save(update_fields=['status'])
             from apps.billing.services import generate_proforma_invoice
             invoice = generate_proforma_invoice(reservation)
             notify(

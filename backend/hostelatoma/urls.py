@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/v1/', include('apps.hostels.urls')),
     path('api/v1/', include('apps.reservations.urls')),
     path('api/v1/billing/', include('apps.billing.urls')),
+    path('api/v1/', include('apps.cashbox.urls')),
     path('api/v1/', include('apps.external_residences.urls')),
     path('api/v1/', include('apps.notifications.urls')),
     path('api/v1/', include('apps.sitesettings.urls')),

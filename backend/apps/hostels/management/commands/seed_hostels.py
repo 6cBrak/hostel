@@ -69,6 +69,9 @@ class Command(BaseCommand):
             'Hostels, zones, chambres et grille tarifaire (à 0, à compléter) créés.'
         ))
         self.stdout.write(self.style.WARNING(
+            'Rappel : monthly_rate est désormais un tarif PAR LIT (Price.monthly_rate × beds_reserved).'
+        ))
+        self.stdout.write(self.style.WARNING(
             'Rappel : types/confort par chambre sont provisoires (section 30 du cahier des charges).'
         ))
 
@@ -87,6 +90,7 @@ class Command(BaseCommand):
                 'floor': floor,
                 'room_type': room_type,
                 'comfort': comfort,
+                'beds_count': room_type.capacity,
                 'notes': 'Type/confort provisoires — à confirmer avec le client.',
             },
         )

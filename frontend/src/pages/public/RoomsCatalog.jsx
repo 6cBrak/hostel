@@ -35,8 +35,11 @@ export default function RoomsCatalog() {
 
   const peopleCount = Number(people) || 0
   const visibleRooms = useMemo(() => {
-    if (!peopleCount || peopleCount <= 1) return rooms
-    return rooms.filter((r) => r.capacity >= peopleCount)
+    // Une chambre "disponible" administrativement peut n'avoir aucun lit
+    // libre (déjà occupée par d'autres locataires) — on ne la propose pas.
+    const withFreeBeds = rooms.filter((r) => r.beds_available > 0)
+    if (!peopleCount || peopleCount <= 1) return withFreeBeds
+    return withFreeBeds.filter((r) => r.beds_available >= peopleCount)
   }, [rooms, peopleCount])
 
   return (

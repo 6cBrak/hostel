@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'apps.hostels',
     'apps.reservations',
     'apps.billing',
+    'apps.cashbox',
     'apps.external_residences',
     'apps.notifications',
     'apps.sitesettings',

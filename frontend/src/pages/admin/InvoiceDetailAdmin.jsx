@@ -58,7 +58,14 @@ export default function InvoiceDetailAdmin() {
           <div className="rounded-lg border border-gray-200 bg-white p-5">
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-gray-500">Montant du séjour</dt>
+                <dt className="text-gray-500">
+                  Montant du séjour
+                  {invoice.beds_reserved > 0 && (
+                    <span className="ml-1 text-xs text-gray-400">
+                      ({invoice.beds_reserved} lit(s) × {formatFCFA(invoice.stay_amount / invoice.beds_reserved)})
+                    </span>
+                  )}
+                </dt>
                 <dd className="font-medium text-gray-900">{formatFCFA(invoice.stay_amount)}</dd>
               </div>
               {Number(invoice.additional_fees) > 0 && (

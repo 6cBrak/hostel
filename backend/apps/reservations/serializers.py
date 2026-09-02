@@ -51,7 +51,7 @@ class ReservationListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'reservation_number', 'requester_name', 'requester_phone',
             'hostel', 'hostel_name', 'room', 'room_number',
-            'is_group', 'number_of_people', 'desired_start_date', 'duration_months',
+            'is_group', 'number_of_people', 'beds_reserved', 'desired_start_date', 'duration_months',
             'desired_end_date', 'days_remaining', 'status', 'created_at',
         ]
 
@@ -75,7 +75,7 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'reservation_number', 'requester', 'hostel', 'hostel_name',
             'requested_room_type', 'requested_comfort', 'room', 'room_detail',
-            'is_group', 'number_of_people', 'members',
+            'is_group', 'number_of_people', 'beds_reserved', 'members',
             'desired_start_date', 'duration_months', 'desired_end_date', 'days_remaining',
             'status', 'rejection_reason',
             'alternative_hostel', 'alternative_hostel_name', 'alternative_room',
@@ -97,14 +97,24 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
 class ReservationCreateSerializer(serializers.ModelSerializer):
     members = ReservationMemberSerializer(many=True, required=False)
     duration_months = serializers.IntegerField(min_value=1, max_value=36)
+    beds_reserved = serializers.IntegerField(min_value=1, default=1)
 
     class Meta:
         model = Reservation
         fields = [
             'hostel', 'requested_room_type', 'requested_comfort', 'room',
-            'is_group', 'number_of_people', 'desired_start_date', 'duration_months',
+            'is_group', 'number_of_people', 'beds_reserved', 'desired_start_date', 'duration_months',
             'members',
         ]
+
+    def validate(self, data):
+        room = data.get('room')
+        beds_reserved = data.get('beds_reserved', 1)
+        if room and beds_reserved > room.beds_available:
+            raise serializers.ValidationError(
+                {'beds_reserved': f"Seulement {room.beds_available} lit(s) disponible(s) dans cette chambre."}
+            )
+        return data
 
     def create(self, validated_data):
         members_data = validated_data.pop('members', [])

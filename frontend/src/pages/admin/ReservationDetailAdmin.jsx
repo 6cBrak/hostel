@@ -167,12 +167,19 @@ export default function ReservationDetailAdmin() {
 function AcceptForm({ reservation, submitting, setSubmitting, onDone }) {
   const [rooms, setRooms] = useState([])
   const [roomId, setRoomId] = useState(reservation.room || '')
+  const [bedsReserved, setBedsReserved] = useState(reservation.beds_reserved || 1)
 
   useEffect(() => {
-    listRooms({ hostel: reservation.hostel, status: 'available', page_size: 100 }).then((r) =>
-      setRooms(r.data.results ?? r.data)
-    )
-  }, [reservation.hostel])
+    listRooms({ hostel: reservation.hostel, status: 'available', page_size: 100 }).then((r) => {
+      const all = r.data.results ?? r.data
+      // Ne montre que les chambres avec au moins un lit libre (sauf la chambre
+      // déjà présélectionnée sur la réservation, pour ne pas la faire disparaître).
+      setRooms(all.filter((room) => room.beds_available > 0 || room.id === reservation.room))
+    })
+  }, [reservation.hostel, reservation.room])
+
+  const selectedRoom = rooms.find((room) => String(room.id) === String(roomId))
+  const maxBeds = selectedRoom?.beds_available || 1
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -182,7 +189,7 @@ function AcceptForm({ reservation, submitting, setSubmitting, onDone }) {
     }
     setSubmitting(true)
     try {
-      await acceptReservation(reservation.id, roomId)
+      await acceptReservation(reservation.id, roomId, bedsReserved)
       toast.success('Réservation acceptée — facture pro-forma générée.')
       onDone()
     } catch (err) {
@@ -204,11 +211,27 @@ function AcceptForm({ reservation, submitting, setSubmitting, onDone }) {
           <option value="">— Sélectionner —</option>
           {rooms.map((room) => (
             <option key={room.id} value={room.id}>
-              Chambre {room.number} — {room.room_type_name} / {room.comfort_name}
+              Chambre {room.number} — {room.room_type_name} / {room.comfort_name} ({room.beds_available}/{room.beds_count} lit(s) libre(s))
             </option>
           ))}
         </select>
       </label>
+      {selectedRoom && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Lits réservés
+          <input
+            type="number"
+            min="1"
+            max={maxBeds}
+            value={bedsReserved}
+            onChange={(e) => setBedsReserved(Math.min(Number(e.target.value) || 1, maxBeds))}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500 sm:max-w-[160px]"
+          />
+          <span className="text-xs font-normal text-gray-400">
+            1 lit pour ce seul locataire, ou {maxBeds} pour louer toute la chambre.
+          </span>
+        </label>
+      )}
       <button
         type="submit"
         disabled={submitting}

@@ -1,4 +1,4 @@
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -23,13 +23,21 @@ class DashboardStatsView(APIView):
         hostels = Hostel.objects.filter(is_active=True)
         rooms = Room.objects.all()
 
+        # États administratifs de la chambre (maintenance/hors service/bloquée) —
+        # indépendants de l'occupation, qui est calculée par lit ci-dessous.
         total_rooms = rooms.count()
-        occupied_rooms = rooms.filter(status=Room.Status.OCCUPIED).count()
         available_rooms = rooms.filter(status=Room.Status.AVAILABLE).count()
         maintenance_rooms = rooms.filter(status=Room.Status.MAINTENANCE).count()
         out_of_service_rooms = rooms.filter(status=Room.Status.OUT_OF_SERVICE).count()
-        lettable_rooms = total_rooms - out_of_service_rooms
-        occupancy_rate = round((occupied_rooms / lettable_rooms) * 100, 1) if lettable_rooms else 0
+        blocked_rooms = rooms.filter(status=Room.Status.BLOCKED).count()
+
+        # Occupation par lit — l'unité de facturation réelle.
+        total_beds = rooms.aggregate(total=Sum('beds_count'))['total'] or 0
+        beds_taken = Reservation.objects.filter(
+            status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
+        ).aggregate(total=Sum('beds_reserved'))['total'] or 0
+        beds_available = max(total_beds - beds_taken, 0)
+        occupancy_rate = round((beds_taken / total_beds) * 100, 1) if total_beds else 0
 
         reservations = Reservation.objects.all()
         pending_reservations = reservations.filter(status=Reservation.Status.PENDING).count()
@@ -54,9 +62,10 @@ class DashboardStatsView(APIView):
         by_hostel = []
         for hostel in hostels:
             h_total = hostel.rooms.count()
-            h_occupied = hostel.rooms.filter(status=Room.Status.OCCUPIED).count()
-            h_out_of_service = hostel.rooms.filter(status=Room.Status.OUT_OF_SERVICE).count()
-            h_lettable = h_total - h_out_of_service
+            h_total_beds = hostel.rooms.aggregate(total=Sum('beds_count'))['total'] or 0
+            h_beds_taken = Reservation.objects.filter(
+                hostel=hostel, status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
+            ).aggregate(total=Sum('beds_reserved'))['total'] or 0
             h_invoiced = Invoice.objects.filter(reservation__hostel=hostel).aggregate(
                 total=Sum('total_amount')
             )['total'] or 0
@@ -67,8 +76,10 @@ class DashboardStatsView(APIView):
                 'hostel_id': hostel.id,
                 'hostel_name': hostel.name,
                 'total_rooms': h_total,
-                'occupied_rooms': h_occupied,
-                'occupancy_rate': round((h_occupied / h_lettable) * 100, 1) if h_lettable else 0,
+                'total_beds': h_total_beds,
+                'beds_taken': h_beds_taken,
+                'beds_available': max(h_total_beds - h_beds_taken, 0),
+                'occupancy_rate': round((h_beds_taken / h_total_beds) * 100, 1) if h_total_beds else 0,
                 'invoiced': h_invoiced,
                 'revenue': h_revenue,
             })
@@ -76,9 +87,13 @@ class DashboardStatsView(APIView):
         return Response({
             'total_hostels': hostels.count(),
             'total_rooms': total_rooms,
-            'occupied_rooms': occupied_rooms,
             'available_rooms': available_rooms,
             'maintenance_rooms': maintenance_rooms,
+            'out_of_service_rooms': out_of_service_rooms,
+            'blocked_rooms': blocked_rooms,
+            'total_beds': total_beds,
+            'beds_taken': beds_taken,
+            'beds_available': beds_available,
             'occupancy_rate': occupancy_rate,
             'rooms_by_status': rooms_by_status,
             'pending_reservations': pending_reservations,

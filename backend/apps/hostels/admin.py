@@ -40,7 +40,7 @@ class AmenityAdmin(admin.ModelAdmin):
 
 @admin.register(Room)
 class RoomAdmin(admin.ModelAdmin):
-    list_display = ['hostel', 'number', 'zone', 'room_type', 'comfort', 'status', 'electricity_policy']
+    list_display = ['hostel', 'number', 'zone', 'room_type', 'comfort', 'beds_count', 'status', 'electricity_policy']
     list_filter = ['hostel', 'room_type', 'comfort', 'status', 'electricity_policy']
     search_fields = ['number']
     autocomplete_fields = ['hostel', 'zone']

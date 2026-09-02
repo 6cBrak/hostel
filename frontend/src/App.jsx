@@ -16,6 +16,7 @@ import InvoiceDetail from './pages/student/InvoiceDetail'
 import Profile from './pages/student/Profile'
 import RequireStaff from './components/RequireStaff'
 import RequireAdmin from './components/RequireAdmin'
+import RequireFinanceStaff from './components/RequireFinanceStaff'
 import AdminLayout from './pages/admin/AdminLayout'
 import ReservationsQueue from './pages/admin/ReservationsQueue'
 import TenantsList from './pages/admin/TenantsList'
@@ -35,6 +36,9 @@ import ExternalResidencesList from './pages/admin/externalresidences/ExternalRes
 import ExternalResidenceForm from './pages/admin/externalresidences/ExternalResidenceForm'
 import UsersList from './pages/admin/users/UsersList'
 import UserForm from './pages/admin/users/UserForm'
+import ExpensesList from './pages/admin/cashbox/ExpensesList'
+import ExpenseForm from './pages/admin/cashbox/ExpenseForm'
+import CashboxDashboard from './pages/admin/cashbox/CashboxDashboard'
 
 export default function App() {
   return (
@@ -79,6 +83,30 @@ export default function App() {
                 <Route path="referentiels" element={<References />} />
                 <Route path="residences-externes" element={<ExternalResidencesList />} />
                 <Route path="residences-externes/:id" element={<ExternalResidenceForm />} />
+                <Route
+                  path="depenses"
+                  element={
+                    <RequireFinanceStaff>
+                      <ExpensesList />
+                    </RequireFinanceStaff>
+                  }
+                />
+                <Route
+                  path="depenses/:id"
+                  element={
+                    <RequireFinanceStaff>
+                      <ExpenseForm />
+                    </RequireFinanceStaff>
+                  }
+                />
+                <Route
+                  path="caisse"
+                  element={
+                    <RequireFinanceStaff>
+                      <CashboxDashboard />
+                    </RequireFinanceStaff>
+                  }
+                />
                 <Route
                   path="parametres"
                   element={

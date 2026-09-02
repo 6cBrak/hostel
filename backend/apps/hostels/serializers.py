@@ -47,6 +47,9 @@ class RoomListSerializer(serializers.ModelSerializer):
     room_type_name = serializers.CharField(source='room_type.name', read_only=True)
     comfort_name = serializers.CharField(source='comfort.name', read_only=True)
     capacity = serializers.IntegerField(read_only=True)
+    beds_taken = serializers.IntegerField(read_only=True)
+    beds_available = serializers.IntegerField(read_only=True)
+    occupancy_status = serializers.CharField(read_only=True)
     monthly_rate = serializers.SerializerMethodField()
     deposit = serializers.SerializerMethodField()
     free_cancellation = serializers.SerializerMethodField()
@@ -56,7 +59,8 @@ class RoomListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'hostel', 'hostel_name', 'zone', 'number', 'floor',
             'room_type', 'room_type_name', 'comfort', 'comfort_name',
-            'capacity', 'electricity_policy', 'status', 'photos', 'monthly_rate',
+            'capacity', 'beds_count', 'beds_taken', 'beds_available', 'occupancy_status',
+            'electricity_policy', 'status', 'photos', 'monthly_rate',
             'deposit', 'free_cancellation',
         ]
 
@@ -82,13 +86,17 @@ class RoomDetailSerializer(serializers.ModelSerializer):
     room_type_detail = RoomTypeSerializer(source='room_type', read_only=True)
     comfort_detail = ComfortOptionSerializer(source='comfort', read_only=True)
     price = serializers.SerializerMethodField()
+    beds_taken = serializers.IntegerField(read_only=True)
+    beds_available = serializers.IntegerField(read_only=True)
+    occupancy_status = serializers.CharField(read_only=True)
 
     class Meta:
         model = Room
         fields = [
             'id', 'hostel', 'hostel_name', 'zone', 'number', 'floor',
             'room_type', 'room_type_detail', 'comfort', 'comfort_detail',
-            'amenities', 'amenity_ids', 'electricity_policy', 'status',
+            'amenities', 'amenity_ids', 'beds_count', 'beds_taken', 'beds_available',
+            'occupancy_status', 'electricity_policy', 'status',
             'photos', 'notes', 'price', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

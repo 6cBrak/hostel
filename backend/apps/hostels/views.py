@@ -93,7 +93,7 @@ class RoomViewSet(viewsets.ModelViewSet):
         ):
             # Le catalogue public ne montre que les chambres louables.
             queryset = queryset.exclude(
-                status__in=[Room.Status.OUT_OF_SERVICE, Room.Status.MAINTENANCE]
+                status__in=[Room.Status.OUT_OF_SERVICE, Room.Status.MAINTENANCE, Room.Status.BLOCKED]
             )
         return queryset
 

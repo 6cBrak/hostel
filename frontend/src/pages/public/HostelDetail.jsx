@@ -21,7 +21,10 @@ export default function HostelDetail() {
     Promise.all([getHostel(id), listRooms({ hostel: id, status: 'available', page_size: 100 })])
       .then(([hostelRes, roomsRes]) => {
         setHostel(hostelRes.data)
-        setRooms(roomsRes.data.results ?? roomsRes.data)
+        const allRooms = roomsRes.data.results ?? roomsRes.data
+        // Une chambre "disponible" administrativement peut n'avoir aucun lit
+        // libre (déjà occupée par d'autres locataires) — on ne la propose pas.
+        setRooms(allRooms.filter((r) => r.beds_available > 0))
       })
       .finally(() => setLoading(false))
   }, [id])

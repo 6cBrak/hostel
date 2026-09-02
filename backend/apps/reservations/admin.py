@@ -15,7 +15,10 @@ class ReservationMemberInline(admin.TabularInline):
 
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
-    list_display = ['reservation_number', 'requester', 'hostel', 'status', 'desired_start_date', 'created_at']
+    list_display = [
+        'reservation_number', 'requester', 'hostel', 'room', 'beds_reserved',
+        'status', 'desired_start_date', 'created_at',
+    ]
     list_filter = ['status', 'hostel', 'is_group']
     search_fields = ['reservation_number', 'requester__user__full_name']
     inlines = [ReservationMemberInline]

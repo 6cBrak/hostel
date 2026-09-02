@@ -6,9 +6,6 @@ import MapPanel from '../../components/MapPanel'
 
 const STATUS_LABELS = {
   available: 'Disponible',
-  reserved: 'Réservée',
-  occupied: 'Occupée',
-  pending: 'En attente',
   maintenance: 'En maintenance',
   out_of_service: 'Hors service',
   blocked: 'Bloquée temporairement',
@@ -35,7 +32,8 @@ export default function RoomDetail() {
   if (loading) return <p className="mx-auto max-w-5xl px-4 py-12 text-gray-500">Chargement…</p>
   if (!room) return <p className="mx-auto max-w-5xl px-4 py-12 text-gray-500">Chambre introuvable.</p>
 
-  const isAvailable = room.status === 'available'
+  // Louable seulement si administrativement disponible ET qu'il reste au moins un lit libre.
+  const isAvailable = room.status === 'available' && room.beds_available > 0
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -91,7 +89,7 @@ export default function RoomDetail() {
               <h1 className="mt-1 text-2xl font-bold text-gray-900">Chambre {room.number}</h1>
               <p className="mt-1 text-gray-500">
                 {room.room_type_detail?.name} · {room.comfort_detail?.name} ·{' '}
-                {room.room_type_detail?.capacity} personne(s)
+                {room.beds_count} lit(s)
                 {room.floor && ` · Étage ${room.floor}`}
               </p>
             </div>
@@ -100,7 +98,11 @@ export default function RoomDetail() {
                 isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
               }`}
             >
-              {STATUS_LABELS[room.status] || room.status}
+              {room.status !== 'available'
+                ? STATUS_LABELS[room.status] || room.status
+                : isAvailable
+                  ? `${room.beds_available} lit(s) libre(s)`
+                  : 'Complète'}
             </span>
           </div>
 

@@ -51,6 +51,7 @@ class InvoiceDetailSerializer(serializers.ModelSerializer):
     hostel_name = serializers.CharField(source='reservation.hostel.name', read_only=True)
     student_name = serializers.CharField(source='reservation.requester.user.full_name', read_only=True)
     room_number = serializers.CharField(source='reservation.room.number', read_only=True)
+    beds_reserved = serializers.IntegerField(source='reservation.beds_reserved', read_only=True)
     amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     balance_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
@@ -58,7 +59,7 @@ class InvoiceDetailSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = [
             'id', 'invoice_number', 'reservation', 'reservation_number', 'hostel_name',
-            'student_name', 'room_number', 'stay_amount', 'additional_fees', 'deposit_amount',
+            'student_name', 'room_number', 'beds_reserved', 'stay_amount', 'additional_fees', 'deposit_amount',
             'total_amount', 'planned_installments', 'status', 'pdf_file', 'notes',
             'amount_paid', 'balance_due', 'payments', 'issued_at', 'created_at', 'updated_at',
         ]

@@ -5,7 +5,10 @@ from .pdf import generate_invoice_pdf
 def generate_proforma_invoice(reservation):
     """Génère la facture pro-forma dès qu'une réservation est acceptée (section 12).
 
-    Le montant du séjour est repris du tarif courant de la chambre affectée.
+    Le montant du séjour est le tarif par lit (Price.monthly_rate) multiplié par
+    le nombre de lits réservés — un locataire seul paie pour 1 lit, un locataire
+    qui loue toute la chambre paie pour tous les lits. Les frais admin/électricité
+    et la caution restent flat, non multipliés par le nombre de lits.
     L'échéancier (acompte / 2e tranche / solde) reste à renseigner par le staff
     tant que la politique exacte n'est pas validée par le client (section 30).
     """
@@ -15,7 +18,7 @@ def generate_proforma_invoice(reservation):
 
     room = reservation.room
     price = room.current_price if room else None
-    stay_amount = price.monthly_rate if price else 0
+    stay_amount = (price.monthly_rate * reservation.beds_reserved) if price else 0
     deposit_amount = price.deposit if price else None
     additional_fees = 0
     if price and price.admin_fee:

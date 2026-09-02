@@ -2,6 +2,8 @@ from rest_framework import viewsets
 from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.cashbox.models import CashMovement
+from apps.cashbox.services import record_movement
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
 from apps.reservations.services import sync_room_occupancy_for_reservation
@@ -59,6 +61,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
         generate_receipt_pdf(receipt)
 
         invoice = payment.invoice
+        record_movement(
+            CashMovement.Type.PAYMENT_IN, payment.amount,
+            date=payment.date, description=f'Paiement {invoice.invoice_number}',
+            payment=payment, hostel=invoice.reservation.hostel, recorded_by=self.request.user,
+        )
+
         student_user = invoice.reservation.requester.user
         notify(
             student_user,

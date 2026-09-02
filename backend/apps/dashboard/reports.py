@@ -49,13 +49,18 @@ class RoomsReportView(APIView):
             price = r.current_price
             rows.append([
                 r.hostel.name, r.zone.name if r.zone else '', r.number, r.room_type.name,
-                r.comfort.name, r.get_status_display(), r.get_electricity_policy_display(),
+                r.comfort.name, r.beds_count, r.beds_taken, r.beds_available,
+                r.get_status_display(), r.get_electricity_policy_display(),
                 float(price.monthly_rate) if price else '',
             ])
 
         return _xlsx_response(
             'chambres.xlsx',
-            ['Hostel', 'Zone/Bloc', 'Numéro', 'Type', 'Confort', 'Statut', 'Électricité', 'Tarif mensuel (FCFA)'],
+            [
+                'Hostel', 'Zone/Bloc', 'Numéro', 'Type', 'Confort',
+                'Lits', 'Lits occupés', 'Lits libres',
+                'Statut', 'Électricité', 'Tarif mensuel/lit (FCFA)',
+            ],
             rows,
         )
 

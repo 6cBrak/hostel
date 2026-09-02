@@ -7,12 +7,16 @@ import {
   listZones, createZone, updateZone, deleteZone,
   listHostels,
 } from '../../../api/hostels'
+import {
+  listExpenseCategories, createExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
+} from '../../../api/cashbox'
 
 const TABS = [
   { key: 'room_types', label: 'Types de chambre' },
   { key: 'comfort', label: 'Confort' },
   { key: 'amenities', label: 'Équipements' },
   { key: 'zones', label: 'Zones / Blocs' },
+  { key: 'expense_categories', label: 'Catégories de dépense' },
 ]
 
 export default function References() {
@@ -96,6 +100,17 @@ export default function References() {
             createFn={createZone}
             updateFn={updateZone}
             deleteFn={deleteZone}
+          />
+        )}
+        {tab === 'expense_categories' && (
+          <ReferenceCrudSection
+            title="Catégories de dépense"
+            hint="Ex. Plomberie, Électricité, Ménage, Fournitures, Réparation."
+            fields={[{ key: 'name', label: 'Nom', type: 'text' }]}
+            listFn={listExpenseCategories}
+            createFn={createExpenseCategory}
+            updateFn={updateExpenseCategory}
+            deleteFn={deleteExpenseCategory}
           />
         )}
       </div>

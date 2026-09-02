@@ -38,7 +38,20 @@ class Hostel(models.Model):
 
     @property
     def available_rooms(self):
-        return self.rooms.filter(status=Room.Status.AVAILABLE).count()
+        """Chambres administrativement disponibles ET avec au moins un lit libre."""
+        from django.db.models import F, Q, Sum
+
+        return (
+            self.rooms.filter(status=Room.Status.AVAILABLE)
+            .annotate(
+                taken=Sum(
+                    'reservations__beds_reserved',
+                    filter=Q(reservations__status__in=['accepted', 'confirmed']),
+                )
+            )
+            .filter(Q(taken__isnull=True) | Q(taken__lt=F('beds_count')))
+            .count()
+        )
 
 
 class Zone(models.Model):
@@ -113,10 +126,14 @@ class Amenity(models.Model):
 
 class Room(models.Model):
     class Status(models.TextChoices):
+        """États purement administratifs, posés à la main par le staff.
+
+        L'occupation (lits pris/libres) n'est PAS un état de ce champ : elle
+        est calculée à la volée depuis les réservations actives — voir
+        beds_taken/beds_available/occupancy_status ci-dessous.
+        """
+
         AVAILABLE = 'available', 'Disponible'
-        RESERVED = 'reserved', 'Réservée'
-        OCCUPIED = 'occupied', 'Occupée'
-        PENDING = 'pending', 'En attente'
         MAINTENANCE = 'maintenance', 'En maintenance'
         OUT_OF_SERVICE = 'out_of_service', 'Hors service'
         BLOCKED = 'blocked', 'Bloquée temporairement'
@@ -134,6 +151,12 @@ class Room(models.Model):
     floor = models.CharField(max_length=30, blank=True, verbose_name='Étage')
     room_type = models.ForeignKey(RoomType, on_delete=models.PROTECT, related_name='rooms')
     comfort = models.ForeignKey(ComfortOption, on_delete=models.PROTECT, related_name='rooms')
+    beds_count = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        verbose_name='Nombre de lits',
+        help_text="Unité de facturation : chaque lit peut être loué à un locataire distinct.",
+    )
     amenities = models.ManyToManyField(Amenity, blank=True, related_name='rooms')
     electricity_policy = models.CharField(
         max_length=20, choices=ElectricityPolicy.choices, default=ElectricityPolicy.INCLUDED
@@ -156,6 +179,8 @@ class Room(models.Model):
 
     @property
     def capacity(self):
+        """Capacité indicative du type de chambre — purement informative.
+        L'unité de facturation/disponibilité réelle est beds_count."""
         return self.room_type.capacity
 
     @property
@@ -163,6 +188,28 @@ class Room(models.Model):
         return Price.objects.filter(
             hostel=self.hostel, room_type=self.room_type, comfort=self.comfort
         ).first()
+
+    @property
+    def beds_taken(self):
+        """Nombre de lits actuellement engagés par des réservations actives."""
+        from apps.reservations.models import Reservation
+
+        return self.reservations.filter(
+            status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
+        ).aggregate(total=models.Sum('beds_reserved'))['total'] or 0
+
+    @property
+    def beds_available(self):
+        return max(self.beds_count - self.beds_taken, 0)
+
+    @property
+    def occupancy_status(self):
+        taken = self.beds_taken
+        if taken <= 0:
+            return 'available'
+        if taken < self.beds_count:
+            return 'partially_occupied'
+        return 'fully_occupied'
 
 
 class Price(models.Model):

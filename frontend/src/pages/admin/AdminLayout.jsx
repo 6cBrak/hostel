@@ -13,6 +13,11 @@ const NAV_ITEMS = [
   { to: '/admin/residences-externes', label: 'Résidences externes' },
 ]
 
+const FINANCE_ITEMS = [
+  { to: '/admin/depenses', label: 'Dépenses' },
+  { to: '/admin/caisse', label: 'Caisse' },
+]
+
 const ADMIN_ONLY_ITEMS = [
   { to: '/admin/parametres', label: "Informations de l'entreprise" },
   { to: '/admin/utilisateurs', label: 'Utilisateurs' },
@@ -34,7 +39,7 @@ function NavItem({ to, label }) {
 }
 
 export default function AdminLayout() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, canManageFinance } = useAuth()
 
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4 px-4 py-6 lg:flex-row lg:gap-6">
@@ -47,6 +52,19 @@ export default function AdminLayout() {
             <NavItem key={item.to} {...item} />
           ))}
         </nav>
+
+        {canManageFinance && (
+          <>
+            <p className="mt-3 px-2 text-xs font-semibold uppercase tracking-wide text-gray-400 lg:mt-5">
+              Dépenses &amp; Caisse
+            </p>
+            <nav className="mt-2 flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+              {FINANCE_ITEMS.map((item) => (
+                <NavItem key={item.to} {...item} />
+              ))}
+            </nav>
+          </>
+        )}
 
         {isAdmin && (
           <>

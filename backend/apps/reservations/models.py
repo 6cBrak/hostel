@@ -78,6 +78,11 @@ class Reservation(models.Model):
 
     is_group = models.BooleanField(default=False)
     number_of_people = models.PositiveSmallIntegerField(default=1)
+    beds_reserved = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name='Lits réservés',
+        help_text="Unité de facturation : 1 lit par locataire, ou tous les lits de la chambre s'il la loue en entier.",
+    )
 
     desired_start_date = models.DateField()
     duration_months = models.PositiveSmallIntegerField(

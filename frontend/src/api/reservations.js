@@ -18,8 +18,11 @@ export const uploadMyDocument = (file) => {
 export const deleteMyDocument = (id) => api.delete('/students/me/documents/', { params: { id } })
 
 // Traitement staff des demandes (Lot 4)
-export const acceptReservation = (id, roomId) =>
-  api.post(`/reservations/${id}/accept/`, roomId ? { room: roomId } : {})
+export const acceptReservation = (id, roomId, bedsReserved) =>
+  api.post(`/reservations/${id}/accept/`, {
+    ...(roomId ? { room: roomId } : {}),
+    ...(bedsReserved ? { beds_reserved: bedsReserved } : {}),
+  })
 export const rejectReservation = (id, reason) =>
   api.post(`/reservations/${id}/reject/`, { reason })
 export const proposeAlternative = (id, payload) =>

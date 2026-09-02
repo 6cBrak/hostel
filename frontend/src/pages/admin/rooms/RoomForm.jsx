@@ -15,6 +15,7 @@ const EMPTY = {
   floor: '',
   room_type: '',
   comfort: '',
+  beds_count: '',
   electricity_policy: 'included',
   status: 'available',
   notes: '',
@@ -37,6 +38,7 @@ export default function RoomForm() {
   const [amenities, setAmenities] = useState([])
   const [loading, setLoading] = useState(!isNew)
   const [submitting, setSubmitting] = useState(false)
+  const [occupancy, setOccupancy] = useState(null)
 
   useEffect(() => {
     listHostels().then((r) => setHostels(r.data.results ?? r.data))
@@ -64,12 +66,18 @@ export default function RoomForm() {
         floor: room.floor || '',
         room_type: room.room_type,
         comfort: room.comfort,
+        beds_count: room.beds_count,
         electricity_policy: room.electricity_policy,
         status: room.status,
         notes: room.notes || '',
       })
       setAmenityIds((room.amenities || []).map((a) => a.id))
       setPhotos(room.photos || [])
+      setOccupancy({
+        beds_taken: room.beds_taken,
+        beds_available: room.beds_available,
+        occupancy_status: room.occupancy_status,
+      })
     }).finally(() => setLoading(false))
   }, [id, isNew])
 
@@ -124,7 +132,12 @@ export default function RoomForm() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      const payload = { ...form, zone: form.zone || null, amenity_ids: amenityIds }
+      const payload = {
+        ...form,
+        zone: form.zone || null,
+        beds_count: Number(form.beds_count) || 1,
+        amenity_ids: amenityIds,
+      }
       if (isNew) {
         await createRoom(payload)
         toast.success('Chambre créée.')
@@ -210,7 +223,16 @@ export default function RoomForm() {
             <select
               required
               value={form.room_type}
-              onChange={(e) => setForm({ ...form, room_type: e.target.value })}
+              onChange={(e) => {
+                const roomType = roomTypes.find((rt) => String(rt.id) === e.target.value)
+                setForm((prev) => ({
+                  ...prev,
+                  room_type: e.target.value,
+                  // Préremplit le nombre de lits depuis la capacité du type — reste
+                  // éditable ensuite (n'écrase pas une valeur déjà saisie).
+                  beds_count: prev.beds_count === '' && roomType ? roomType.capacity : prev.beds_count,
+                }))
+              }}
               className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
             >
               <option value="">— Sélectionner —</option>
@@ -234,6 +256,26 @@ export default function RoomForm() {
             </select>
           </label>
         </div>
+
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Nombre de lits
+          <input
+            type="number"
+            min="1"
+            required
+            value={form.beds_count}
+            onChange={(e) => setForm({ ...form, beds_count: e.target.value })}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500 sm:max-w-[160px]"
+          />
+          <span className="text-xs font-normal text-gray-400">
+            Unité de facturation : chaque lit peut être loué à un locataire distinct.
+            {occupancy && (
+              <>
+                {' '}Actuellement : {occupancy.beds_taken} occupé(s), {occupancy.beds_available} libre(s).
+              </>
+            )}
+          </span>
+        </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Électricité
