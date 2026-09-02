@@ -105,20 +105,29 @@ class TenantsReportView(APIView):
             reservations__status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
         ).distinct().select_related('user').prefetch_related('reservations__hostel', 'reservations__room')
 
+        today = timezone.localdate()
         rows = []
         for s in students:
             active = s.reservations.filter(
                 status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
             ).select_related('hostel', 'room').first()
+            days_remaining = (active.desired_end_date - today).days if active and active.desired_end_date else ''
             rows.append([
                 s.user.full_name, s.user.email, s.user.phone_number, s.nationality, s.program,
                 active.hostel.name if active else '',
                 active.room.number if active and active.room else '',
+                active.beds_reserved if active else '',
+                active.desired_start_date.isoformat() if active and active.desired_start_date else '',
+                active.desired_end_date.isoformat() if active and active.desired_end_date else '',
+                days_remaining,
             ])
 
         return _xlsx_response(
             'locataires.xlsx',
-            ['Nom', 'Email', 'Téléphone', 'Nationalité', 'Programme', 'Hostel', 'Chambre'],
+            [
+                'Nom', 'Email', 'Téléphone', 'Nationalité', 'Programme', 'Hostel', 'Chambre', 'Lits',
+                "Date d'entrée", 'Date de sortie', 'Jours restants',
+            ],
             rows,
         )
 
