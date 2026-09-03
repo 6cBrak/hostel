@@ -2,7 +2,7 @@
 // L'occupation (lits pris/libres) est une donnée séparée, voir
 // OCCUPANCY_STATUS_LABELS/_TONES ci-dessous.
 export const ROOM_STATUS_LABELS = {
-  available: 'Disponible',
+  available: 'En service',
   maintenance: 'En maintenance',
   out_of_service: 'Hors service',
   blocked: 'Bloquée temporairement',

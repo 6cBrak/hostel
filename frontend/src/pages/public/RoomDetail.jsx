@@ -4,8 +4,10 @@ import { getRoom, getHostel } from '../../api/hostels'
 import BookingBadges from '../../components/BookingBadges'
 import MapPanel from '../../components/MapPanel'
 
+// 'available' n'est jamais affiché tel quel : quand la chambre est en service,
+// le badge montre l'occupation par lit à la place (voir isAvailable ci-dessous).
 const STATUS_LABELS = {
-  available: 'Disponible',
+  available: 'En service',
   maintenance: 'En maintenance',
   out_of_service: 'Hors service',
   blocked: 'Bloquée temporairement',
