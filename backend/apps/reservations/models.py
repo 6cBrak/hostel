@@ -56,6 +56,7 @@ class Reservation(models.Model):
         CONFIRMED = 'confirmed', 'Confirmée définitivement'
         CANCELLED = 'cancelled', 'Annulée'
         EXPIRED = 'expired', 'Expirée'
+        COMPLETED = 'completed', 'Terminée (check-out effectué)'
 
     reservation_number = models.CharField(max_length=30, unique=True, blank=True)
 

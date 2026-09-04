@@ -69,6 +69,7 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
     hostel_name = serializers.CharField(source='hostel.name', read_only=True)
     alternative_hostel_name = serializers.CharField(source='alternative_hostel.name', read_only=True)
     days_remaining = serializers.SerializerMethodField()
+    check_out = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
@@ -77,7 +78,7 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
             'requested_room_type', 'requested_comfort', 'room', 'room_detail',
             'is_group', 'number_of_people', 'beds_reserved', 'members',
             'desired_start_date', 'duration_months', 'desired_end_date', 'days_remaining',
-            'status', 'rejection_reason',
+            'status', 'rejection_reason', 'check_out',
             'alternative_hostel', 'alternative_hostel_name', 'alternative_room',
             'alternative_room_detail', 'alternative_external_residence', 'alternative_note',
             'handled_by', 'decided_at', 'created_at', 'updated_at',
@@ -92,6 +93,11 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
         if not obj.desired_end_date:
             return None
         return (obj.desired_end_date - timezone.localdate()).days
+
+    def get_check_out(self, obj):
+        if not hasattr(obj, 'check_out'):
+            return None
+        return CheckOutSerializer(obj.check_out).data
 
 
 class ReservationCreateSerializer(serializers.ModelSerializer):
@@ -177,4 +183,13 @@ class CheckOutSerializer(serializers.ModelSerializer):
             'id', 'reservation', 'checked_out_at', 'room_verified',
             'damages_notes', 'additional_fees', 'balance_due', 'closed', 'performed_by',
         ]
-        read_only_fields = ['id', 'performed_by']
+        # balance_due est calculé côté serveur (solde de facture + frais additionnels),
+        # closed est toujours forcé à True à la création — voir CheckOutViewSet.perform_create.
+        read_only_fields = ['id', 'balance_due', 'closed', 'performed_by']
+
+    def validate_reservation(self, value):
+        if value.status not in (Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED):
+            raise serializers.ValidationError(
+                "Cette réservation n'est pas un séjour actif (déjà clôturé, rejeté ou annulé)."
+            )
+        return value

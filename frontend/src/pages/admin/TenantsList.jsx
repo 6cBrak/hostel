@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { listTenants } from '../../api/reservations'
 import { useAdminList } from '../../hooks/useAdminList'
 import SearchInput from '../../components/admin/SearchInput'
@@ -107,18 +107,19 @@ export default function TenantsList() {
                         {daysRemainingLabel(t.days_remaining)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {wa ? (
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <Link to={`/admin/reservations/${t.id}`} className="font-medium text-brand-600 hover:underline">
+                        {ended ? 'Check-out →' : 'Voir →'}
+                      </Link>
+                      {wa && (
                         <a
                           href={wa}
                           target="_blank"
                           rel="noreferrer"
-                          className="font-medium text-brand-600 hover:underline"
+                          className="ml-3 font-medium text-brand-600 hover:underline"
                         >
-                          Relancer sur WhatsApp →
+                          WhatsApp
                         </a>
-                      ) : (
-                        <span className="text-xs text-gray-400">Pas de téléphone</span>
                       )}
                     </td>
                   </tr>

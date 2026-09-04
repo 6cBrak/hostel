@@ -7,6 +7,7 @@ export const STATUS_LABELS = {
   confirmed: 'Confirmée',
   cancelled: 'Annulée',
   expired: 'Expirée',
+  completed: 'Terminée (check-out effectué)',
 }
 
 export const STATUS_TONES = {
@@ -18,4 +19,5 @@ export const STATUS_TONES = {
   confirmed: 'bg-emerald-50 text-emerald-700',
   cancelled: 'bg-gray-100 text-gray-500',
   expired: 'bg-gray-100 text-gray-500',
+  completed: 'bg-gray-100 text-gray-500',
 }

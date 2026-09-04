@@ -179,18 +179,27 @@ class ReservationViewSet(viewsets.ModelViewSet):
         """Étudiants ayant une réservation active avec chambre assignée — pour le
         suivi des locataires (durée, date de fin, jours restants, relance).
 
-        Par défaut : séjours en cours (date de fin non atteinte, ou non renseignée).
-        ?ended=true : historique des séjours dont la date de fin est déjà passée."""
+        Par défaut : séjours en cours (acceptés/confirmés, date de fin non
+        atteinte ou non renseignée). ?ended=true : historique — séjours
+        clôturés par check-out (Terminée) OU dont la date de fin est déjà
+        passée sans check-out encore effectué (à traiter)."""
         from django.db.models import F
 
-        base = self.get_queryset().filter(
-            status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED], room__isnull=False
-        )
         today = timezone.localdate()
+        base = self.get_queryset().filter(room__isnull=False)
+
         if request.query_params.get('ended') == 'true':
-            queryset = base.filter(desired_end_date__lt=today).order_by('-desired_end_date')
+            queryset = base.filter(
+                Q(status=Reservation.Status.COMPLETED)
+                | Q(
+                    status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED],
+                    desired_end_date__lt=today,
+                )
+            ).order_by('-desired_end_date')
         else:
             queryset = base.filter(
+                status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
+            ).filter(
                 Q(desired_end_date__isnull=True) | Q(desired_end_date__gte=today)
             ).order_by(F('desired_end_date').asc(nulls_last=True))
 
@@ -381,4 +390,19 @@ class CheckOutViewSet(viewsets.ModelViewSet):
     queryset = CheckOut.objects.select_related('reservation').all()
 
     def perform_create(self, serializer):
-        serializer.save(performed_by=self.request.user)
+        """Clôture le séjour : bascule la réservation en 'Terminée' (ce qui libère
+        le lit — voir Room.beds_taken, calculé uniquement sur ACCEPTED/CONFIRMED)
+        et enregistre un solde-instantané (facture restant due + frais additionnels
+        éventuels, ex. dégâts) à titre informatif."""
+        reservation = serializer.validated_data['reservation']
+        invoice_balance = reservation.invoice.balance_due if hasattr(reservation, 'invoice') else 0
+        additional_fees = serializer.validated_data.get('additional_fees') or 0
+
+        serializer.save(
+            performed_by=self.request.user,
+            closed=True,
+            balance_due=invoice_balance + additional_fees,
+        )
+
+        reservation.status = Reservation.Status.COMPLETED
+        reservation.save(update_fields=['status'])

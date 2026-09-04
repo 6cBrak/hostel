@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { getReservation, acceptReservation, rejectReservation, proposeAlternative } from '../../api/reservations'
+import {
+  getReservation, acceptReservation, rejectReservation, proposeAlternative, createCheckOut,
+} from '../../api/reservations'
 import { listRooms, listHostels } from '../../api/hostels'
 import { listExternalResidences } from '../../api/externalResidences'
 import { STATUS_LABELS, STATUS_TONES } from '../../lib/reservationStatus'
+import { formatFCFA } from '../../lib/billingLabels'
 
 export default function ReservationDetailAdmin() {
   const { id } = useParams()
@@ -28,6 +31,7 @@ export default function ReservationDetailAdmin() {
   if (!reservation) return <p className="text-gray-500">Demande introuvable.</p>
 
   const canAct = ['pending', 'alternative_rejected'].includes(reservation.status)
+  const canCheckOut = ['accepted', 'confirmed'].includes(reservation.status) && !reservation.check_out
 
   return (
     <div>
@@ -104,13 +108,7 @@ export default function ReservationDetailAdmin() {
 
         {/* Panneau d'action */}
         <div className="rounded-lg border border-gray-200 bg-white p-5">
-          {!canAct ? (
-            <p className="text-sm text-gray-500">
-              Cette demande a déjà été traitée
-              {reservation.status === 'alternative_proposed' &&
-                " — en attente de la réponse de l'étudiant à la proposition."}
-            </p>
-          ) : (
+          {canAct ? (
             <>
               <div className="flex rounded-md border border-gray-300 text-sm">
                 {[
@@ -157,10 +155,128 @@ export default function ReservationDetailAdmin() {
                 )}
               </div>
             </>
+          ) : canCheckOut ? (
+            <>
+              <h2 className="font-semibold text-gray-900">Check-out</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Clôture le séjour et libère le lit pour une nouvelle réservation.
+              </p>
+              <div className="mt-4">
+                <CheckOutForm
+                  reservationId={reservation.id}
+                  submitting={submitting}
+                  setSubmitting={setSubmitting}
+                  onDone={load}
+                />
+              </div>
+            </>
+          ) : reservation.check_out ? (
+            <>
+              <h2 className="font-semibold text-gray-900">Séjour terminé</h2>
+              <dl className="mt-2 flex flex-col gap-1.5 text-sm text-gray-700">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-gray-500">Check-out effectué le</dt>
+                  <dd className="font-medium text-gray-900">
+                    {new Date(reservation.check_out.checked_out_at).toLocaleString('fr-FR')}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-gray-500">Chambre vérifiée</dt>
+                  <dd className="font-medium text-gray-900">{reservation.check_out.room_verified ? 'Oui' : 'Non'}</dd>
+                </div>
+                {reservation.check_out.damages_notes && (
+                  <div>
+                    <dt className="text-gray-500">Dégâts constatés</dt>
+                    <dd className="mt-1 text-gray-900">{reservation.check_out.damages_notes}</dd>
+                  </div>
+                )}
+                {Number(reservation.check_out.additional_fees) > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-gray-500">Frais additionnels</dt>
+                    <dd className="font-medium text-gray-900">{formatFCFA(reservation.check_out.additional_fees)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-3 border-t border-gray-200 pt-1.5">
+                  <dt className="text-gray-500">Solde restant au check-out</dt>
+                  <dd className="font-semibold text-gray-900">{formatFCFA(reservation.check_out.balance_due)}</dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Cette demande a déjà été traitée
+              {reservation.status === 'alternative_proposed' &&
+                " — en attente de la réponse de l'étudiant à la proposition."}
+            </p>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+function CheckOutForm({ reservationId, submitting, setSubmitting, onDone }) {
+  const [roomVerified, setRoomVerified] = useState(true)
+  const [damagesNotes, setDamagesNotes] = useState('')
+  const [additionalFees, setAdditionalFees] = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await createCheckOut({
+        reservation: reservationId,
+        room_verified: roomVerified,
+        damages_notes: damagesNotes,
+        additional_fees: additionalFees || 0,
+      })
+      toast.success('Check-out effectué — le lit est libéré.')
+      onDone()
+    } catch (err) {
+      const errors = err.response?.data
+      toast.error(errors ? Object.values(errors).flat().join(' ') : 'Erreur lors du check-out.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <input
+          type="checkbox"
+          checked={roomVerified}
+          onChange={(e) => setRoomVerified(e.target.checked)}
+        />
+        Chambre vérifiée, état correct
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Dégâts constatés (optionnel)
+        <textarea
+          rows={2}
+          value={damagesNotes}
+          onChange={(e) => setDamagesNotes(e.target.value)}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Frais additionnels — dégâts (FCFA, optionnel)
+        <input
+          type="number"
+          min="0"
+          value={additionalFees}
+          onChange={(e) => setAdditionalFees(e.target.value)}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={submitting}
+        className="rounded-md bg-brand-900 px-4 py-2 font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+      >
+        Effectuer le check-out
+      </button>
+    </form>
   )
 }
 

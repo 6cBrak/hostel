@@ -27,3 +27,5 @@ export const rejectReservation = (id, reason) =>
   api.post(`/reservations/${id}/reject/`, { reason })
 export const proposeAlternative = (id, payload) =>
   api.post(`/reservations/${id}/propose-alternative/`, payload)
+
+export const createCheckOut = (payload) => api.post('/check-outs/', payload)
