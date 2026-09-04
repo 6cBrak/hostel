@@ -74,9 +74,10 @@ export default function InvoiceDetailAdmin() {
               <div className="flex justify-between gap-3">
                 <dt className="text-gray-500">
                   Montant du séjour
-                  {invoice.beds_reserved > 0 && (
+                  {invoice.beds_reserved > 0 && invoice.duration_months > 0 && (
                     <span className="ml-1 text-xs text-gray-400">
-                      ({invoice.beds_reserved} lit(s) × {formatFCFA(invoice.stay_amount / invoice.beds_reserved)})
+                      ({invoice.beds_reserved} lit(s) × {invoice.duration_months} mois ×{' '}
+                      {formatFCFA(invoice.stay_amount / invoice.beds_reserved / invoice.duration_months)})
                     </span>
                   )}
                 </dt>
