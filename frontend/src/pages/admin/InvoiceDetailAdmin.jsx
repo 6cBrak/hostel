@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { getInvoice, createPayment } from '../../api/billing'
+import { getInvoice, createPayment, recalculateInvoice } from '../../api/billing'
 import {
   INVOICE_STATUS_LABELS, INVOICE_STATUS_TONES,
   PAYMENT_TYPE_LABELS, PAYMENT_METHOD_LABELS, formatFCFA, formatBalance,
@@ -11,6 +11,7 @@ export default function InvoiceDetailAdmin() {
   const { id } = useParams()
   const [invoice, setInvoice] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [recalculating, setRecalculating] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -20,6 +21,19 @@ export default function InvoiceDetailAdmin() {
   }
 
   useEffect(load, [id])
+
+  const handleRecalculate = async () => {
+    setRecalculating(true)
+    try {
+      await recalculateInvoice(id)
+      toast.success('Facture recalculée depuis la grille tarifaire actuelle.')
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur lors du recalcul.')
+    } finally {
+      setRecalculating(false)
+    }
+  }
 
   if (loading) return <p className="text-gray-500">Chargement…</p>
   if (!invoice) return <p className="text-gray-500">Facture introuvable.</p>
@@ -84,6 +98,21 @@ export default function InvoiceDetailAdmin() {
                 <dt className="font-semibold text-gray-900">Montant total</dt>
                 <dd className="font-semibold text-gray-900">{formatFCFA(invoice.total_amount)}</dd>
               </div>
+              {invoice.payments.length === 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-md bg-amber-50 p-2.5">
+                  <p className="text-xs text-amber-700">
+                    Tarif corrigé depuis ? Recalcule cette facture sans la régénérer entièrement.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRecalculate}
+                    disabled={recalculating}
+                    className="shrink-0 whitespace-nowrap rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                  >
+                    {recalculating ? 'Recalcul…' : 'Recalculer'}
+                  </button>
+                </div>
+              )}
               <div className="flex justify-between gap-3">
                 <dt className="text-gray-500">Montant payé</dt>
                 <dd className="font-medium text-emerald-600">{formatFCFA(invoice.amount_paid)}</dd>

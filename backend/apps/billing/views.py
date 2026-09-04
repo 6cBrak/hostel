@@ -1,5 +1,7 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.cashbox.models import CashMovement
@@ -13,11 +15,12 @@ from .permissions import IsStaffOrOwnerReadOnly
 from .serializers import (
     InvoiceListSerializer, InvoiceDetailSerializer, PaymentSerializer, ReceiptSerializer,
 )
+from .services import recalculate_invoice
 
 
 class InvoiceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsStaffOrOwnerReadOnly]
-    http_method_names = ['get', 'patch', 'head', 'options']
+    http_method_names = ['get', 'patch', 'post', 'head', 'options']
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['status', 'reservation', 'reservation__hostel']
     search_fields = ['invoice_number', 'reservation__reservation_number', 'reservation__requester__user__full_name']
@@ -37,6 +40,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return InvoiceListSerializer
         return InvoiceDetailSerializer
+
+    @action(detail=True, methods=['post'])
+    def recalculate(self, request, pk=None):
+        """Recalcule le montant d'une facture depuis la grille tarifaire courante
+        — utile quand le tarif était manquant/à 0 au moment de la génération et
+        a été complété depuis dans Tarifs. Refusé si des paiements existent déjà
+        (voir apps.billing.services.recalculate_invoice)."""
+        invoice = self.get_object()
+        try:
+            recalculate_invoice(invoice)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
+        return Response(InvoiceDetailSerializer(invoice).data)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
