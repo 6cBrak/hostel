@@ -44,21 +44,33 @@ class ReservationListSerializer(serializers.ModelSerializer):
     requester_phone = serializers.CharField(source='requester.user.phone_number', read_only=True)
     hostel_name = serializers.CharField(source='hostel.name', read_only=True)
     room_number = serializers.CharField(source='room.number', read_only=True)
+    room_beds_count = serializers.SerializerMethodField()
     days_remaining = serializers.SerializerMethodField()
+    balance_due = serializers.SerializerMethodField()
+    amount_paid = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
         fields = [
             'id', 'reservation_number', 'requester_name', 'requester_phone',
-            'hostel', 'hostel_name', 'room', 'room_number',
+            'hostel', 'hostel_name', 'room', 'room_number', 'room_beds_count',
             'is_group', 'number_of_people', 'beds_reserved', 'desired_start_date', 'duration_months',
-            'desired_end_date', 'days_remaining', 'status', 'created_at',
+            'desired_end_date', 'days_remaining', 'status', 'balance_due', 'amount_paid', 'created_at',
         ]
 
     def get_days_remaining(self, obj):
         if not obj.desired_end_date:
             return None
         return (obj.desired_end_date - timezone.localdate()).days
+
+    def get_room_beds_count(self, obj):
+        return obj.room.beds_count if obj.room else None
+
+    def get_balance_due(self, obj):
+        return obj.invoice.balance_due if hasattr(obj, 'invoice') else None
+
+    def get_amount_paid(self, obj):
+        return obj.invoice.amount_paid if hasattr(obj, 'invoice') else None
 
 
 class ReservationDetailSerializer(serializers.ModelSerializer):

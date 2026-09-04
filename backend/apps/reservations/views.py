@@ -120,8 +120,8 @@ class ReservationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = Reservation.objects.select_related(
-            'requester__user', 'hostel', 'room', 'alternative_hostel', 'alternative_room'
-        ).prefetch_related('members')
+            'requester__user', 'hostel', 'room', 'alternative_hostel', 'alternative_room', 'invoice'
+        ).prefetch_related('members', 'invoice__payments')
         if user.is_student_role:
             return queryset.filter(requester__user=user)
         if user.is_manager:
