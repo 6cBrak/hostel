@@ -2,9 +2,70 @@ import json
 
 from django.core import serializers
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
-from .models import Reservation, ReservationMember, Student
+from .models import Reservation, ReservationMember, Student, add_months
+
+
+def other_beds_taken(room, reservation):
+    """Lits déjà engagés sur cette chambre par d'AUTRES réservations actives
+    (accepted/confirmed) — sert à valider une affectation sans compter deux
+    fois la réservation qu'on est en train de traiter. Utilisé par accept(),
+    respond_alternative() et transfer_reservation()."""
+    return room.reservations.filter(
+        status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
+    ).exclude(pk=reservation.pk).aggregate(total=Sum('beds_reserved'))['total'] or 0
+
+
+@transaction.atomic
+def transfer_reservation(reservation, new_room, beds_reserved, remaining_months, performed_by=None):
+    """Transfère un locataire vers une nouvelle chambre (éventuellement un
+    autre hostel).
+
+    - Clôture l'ancienne réservation (statut 'Transférée') — son lit se
+      libère automatiquement, l'occupation étant dérivée du statut.
+    - Crée une nouvelle réservation pour la nouvelle chambre, sur la durée
+      restante indiquée, avec sa propre facture générée au tarif courant.
+    - L'ancienne facture n'est JAMAIS modifiée : ce qui a été facturé/payé
+      pour le temps passé dans l'ancienne chambre reste tel quel.
+    - Garde un lien (previous_reservation) entre les deux pour l'historique.
+
+    Lève ValueError si la réservation n'est pas un séjour actif, ou si la
+    chambre de destination n'a pas assez de lits libres.
+    """
+    if reservation.status not in (Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED):
+        raise ValueError("Cette réservation n'est pas un séjour actif.")
+
+    if new_room.status != new_room.Status.AVAILABLE:
+        raise ValueError(f"Chambre indisponible ({new_room.get_status_display()}).")
+
+    already_taken = other_beds_taken(new_room, reservation)
+    if already_taken + beds_reserved > new_room.beds_count:
+        remaining = max(new_room.beds_count - already_taken, 0)
+        raise ValueError(f"Plus que {remaining} lit(s) disponible(s) dans cette chambre.")
+
+    reservation.status = Reservation.Status.TRANSFERRED
+    reservation.save(update_fields=['status'])
+
+    start_date = timezone.localdate()
+    new_reservation = Reservation.objects.create(
+        requester=reservation.requester,
+        hostel=new_room.hostel,
+        room=new_room,
+        beds_reserved=beds_reserved,
+        desired_start_date=start_date,
+        duration_months=remaining_months,
+        desired_end_date=add_months(start_date, remaining_months),
+        status=Reservation.Status.ACCEPTED,
+        handled_by=performed_by,
+        decided_at=timezone.now(),
+        previous_reservation=reservation,
+    )
+
+    from apps.billing.services import generate_proforma_invoice
+    invoice = generate_proforma_invoice(new_reservation)
+    return new_reservation, invoice
 
 
 def sync_room_occupancy_for_reservation(reservation):

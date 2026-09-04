@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   getReservation, acceptReservation, rejectReservation, proposeAlternative, createCheckOut,
+  extendReservation, transferReservation,
 } from '../../api/reservations'
 import { listRooms, listHostels } from '../../api/hostels'
 import { listExternalResidences } from '../../api/externalResidences'
@@ -16,6 +17,7 @@ export default function ReservationDetailAdmin() {
   const [reservation, setReservation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [action, setAction] = useState('accept')
+  const [activeAction, setActiveAction] = useState('checkout')
   const [submitting, setSubmitting] = useState(false)
 
   const load = () => {
@@ -66,6 +68,12 @@ export default function ReservationDetailAdmin() {
               <div className="flex justify-between gap-3"><dt className="shrink-0 text-gray-500">Date de sortie</dt><dd className="text-right font-medium text-gray-900">{reservation.desired_end_date}</dd></div>
             )}
             <div className="flex justify-between gap-3"><dt className="shrink-0 text-gray-500">Groupe</dt><dd className="text-right font-medium text-gray-900">{reservation.is_group ? `Oui (${reservation.number_of_people} pers.)` : 'Non'}</dd></div>
+            {reservation.previous_reservation_number && (
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-gray-500">Fait suite à</dt>
+                <dd className="text-right font-medium text-gray-900">{reservation.previous_reservation_number} (transfert)</dd>
+              </div>
+            )}
             {reservation.room_detail && (
               <div className="flex justify-between gap-3">
                 <dt className="shrink-0 text-gray-500">Chambre souhaitée</dt>
@@ -157,17 +165,47 @@ export default function ReservationDetailAdmin() {
             </>
           ) : canCheckOut ? (
             <>
-              <h2 className="font-semibold text-gray-900">Check-out</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Clôture le séjour et libère le lit pour une nouvelle réservation.
-              </p>
+              <div className="flex rounded-md border border-gray-300 text-sm">
+                {[
+                  ['checkout', 'Check-out'],
+                  ['extend', 'Prolonger'],
+                  ['transfer', 'Transférer'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setActiveAction(value)}
+                    className={`flex-1 px-3 py-2 font-medium ${
+                      activeAction === value ? 'bg-brand-900 text-white' : 'bg-white text-gray-600'
+                    } first:rounded-l-md last:rounded-r-md`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div className="mt-4">
-                <CheckOutForm
-                  reservationId={reservation.id}
-                  submitting={submitting}
-                  setSubmitting={setSubmitting}
-                  onDone={load}
-                />
+                {activeAction === 'checkout' && (
+                  <CheckOutForm
+                    reservationId={reservation.id}
+                    submitting={submitting}
+                    setSubmitting={setSubmitting}
+                    onDone={load}
+                  />
+                )}
+                {activeAction === 'extend' && (
+                  <ExtendForm
+                    reservationId={reservation.id}
+                    submitting={submitting}
+                    setSubmitting={setSubmitting}
+                    onDone={load}
+                  />
+                )}
+                {activeAction === 'transfer' && (
+                  <TransferForm
+                    reservation={reservation}
+                    submitting={submitting}
+                    setSubmitting={setSubmitting}
+                  />
+                )}
               </div>
             </>
           ) : reservation.check_out ? (
@@ -202,6 +240,16 @@ export default function ReservationDetailAdmin() {
                 </div>
               </dl>
             </>
+          ) : reservation.status === 'transferred' && reservation.next_reservation_id ? (
+            <p className="text-sm text-gray-500">
+              Ce locataire a été transféré vers une nouvelle réservation :{' '}
+              <Link
+                to={`/admin/reservations/${reservation.next_reservation_id}`}
+                className="font-medium text-brand-600 hover:underline"
+              >
+                {reservation.next_reservation_number}
+              </Link>
+            </p>
           ) : (
             <p className="text-sm text-gray-500">
               Cette demande a déjà été traitée
@@ -212,6 +260,167 @@ export default function ReservationDetailAdmin() {
         </div>
       </div>
     </div>
+  )
+}
+
+function ExtendForm({ reservationId, submitting, setSubmitting, onDone }) {
+  const [months, setMonths] = useState(1)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await extendReservation(reservationId, months)
+      toast.success('Séjour prolongé — facture mise à jour.')
+      onDone()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur lors de la prolongation.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Mois supplémentaires
+        <input
+          type="number"
+          min="1"
+          value={months}
+          onChange={(e) => setMonths(Number(e.target.value) || 1)}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500 sm:max-w-[160px]"
+        />
+        <span className="text-xs font-normal text-gray-400">
+          Le montant correspondant s'ajoute à la facture existante — les paiements déjà enregistrés ne sont pas touchés.
+        </span>
+      </label>
+      <button
+        type="submit"
+        disabled={submitting}
+        className="self-start rounded-md bg-brand-900 px-4 py-2 font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+      >
+        Prolonger
+      </button>
+    </form>
+  )
+}
+
+function TransferForm({ reservation, submitting, setSubmitting }) {
+  const navigate = useNavigate()
+  const [hostels, setHostels] = useState([])
+  const [rooms, setRooms] = useState([])
+  const [hostelId, setHostelId] = useState(reservation.hostel)
+  const [roomId, setRoomId] = useState('')
+  const [bedsReserved, setBedsReserved] = useState(reservation.beds_reserved || 1)
+  const suggestedMonths = reservation.days_remaining > 0 ? Math.max(1, Math.ceil(reservation.days_remaining / 30)) : 1
+  const [remainingMonths, setRemainingMonths] = useState(suggestedMonths)
+
+  useEffect(() => {
+    listHostels().then((r) => setHostels(r.data.results ?? r.data))
+  }, [])
+
+  useEffect(() => {
+    if (!hostelId) {
+      setRooms([])
+      return
+    }
+    listRooms({ hostel: hostelId, status: 'available', page_size: 100 }).then((r) => {
+      const all = r.data.results ?? r.data
+      setRooms(all.filter((room) => room.beds_available > 0 && room.id !== reservation.room))
+    })
+  }, [hostelId, reservation.room])
+
+  const selectedRoom = rooms.find((room) => String(room.id) === String(roomId))
+  const maxBeds = selectedRoom?.beds_available || 1
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!roomId) {
+      toast.error('Sélectionnez une chambre de destination.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const { data } = await transferReservation(reservation.id, {
+        room: roomId, beds_reserved: bedsReserved, remaining_months: remainingMonths,
+      })
+      toast.success('Transfert effectué — nouvelle facture générée.')
+      navigate(`/admin/reservations/${data.id}`)
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Erreur lors du transfert.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Hostel de destination
+        <select
+          value={hostelId}
+          onChange={(e) => {
+            setHostelId(e.target.value)
+            setRoomId('')
+          }}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
+        >
+          {hostels.map((h) => (
+            <option key={h.id} value={h.id}>{h.name}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Chambre de destination
+        <select
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
+        >
+          <option value="">— Sélectionner —</option>
+          {rooms.map((room) => (
+            <option key={room.id} value={room.id}>
+              Chambre {room.number} — {room.room_type_name} / {room.comfort_name} ({room.beds_available}/{room.beds_count} lit(s) libre(s))
+            </option>
+          ))}
+        </select>
+      </label>
+      {selectedRoom && (
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Lits réservés
+          <input
+            type="number"
+            min="1"
+            max={maxBeds}
+            value={bedsReserved}
+            onChange={(e) => setBedsReserved(Math.min(Number(e.target.value) || 1, maxBeds))}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500 sm:max-w-[160px]"
+          />
+        </label>
+      )}
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Durée restante (mois)
+        <input
+          type="number"
+          min="1"
+          value={remainingMonths}
+          onChange={(e) => setRemainingMonths(Number(e.target.value) || 1)}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500 sm:max-w-[160px]"
+        />
+        <span className="text-xs font-normal text-gray-400">
+          Une nouvelle facture sera générée pour cette durée, au tarif de la nouvelle chambre.
+          L'ancienne facture n'est pas modifiée.
+        </span>
+      </label>
+      <button
+        type="submit"
+        disabled={submitting}
+        className="self-start rounded-md bg-brand-900 px-4 py-2 font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+      >
+        Transférer
+      </button>
+    </form>
   )
 }
 

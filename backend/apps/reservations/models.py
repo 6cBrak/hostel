@@ -57,6 +57,7 @@ class Reservation(models.Model):
         CANCELLED = 'cancelled', 'Annulée'
         EXPIRED = 'expired', 'Expirée'
         COMPLETED = 'completed', 'Terminée (check-out effectué)'
+        TRANSFERRED = 'transferred', 'Transférée vers une autre chambre'
 
     reservation_number = models.CharField(max_length=30, unique=True, blank=True)
 
@@ -75,6 +76,11 @@ class Reservation(models.Model):
     room = models.ForeignKey(
         'hostels.Room', on_delete=models.SET_NULL, null=True, blank=True, related_name='reservations',
         verbose_name='Chambre affectée',
+    )
+    previous_reservation = models.OneToOneField(
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='next_reservation',
+        verbose_name='Réservation précédente',
+        help_text="Renseigné automatiquement lors d'un transfert de chambre — pointe vers le séjour dont celle-ci prend la suite.",
     )
 
     is_group = models.BooleanField(default=False)

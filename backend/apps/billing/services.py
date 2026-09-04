@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from .models import Invoice
 from .pdf import generate_invoice_pdf
 
@@ -71,5 +73,40 @@ def recalculate_invoice(invoice):
     invoice.deposit_amount = deposit_amount
     invoice.total_amount = stay_amount + additional_fees
     invoice.save(update_fields=['stay_amount', 'additional_fees', 'deposit_amount', 'total_amount', 'updated_at'])
+    generate_invoice_pdf(invoice)
+    return invoice
+
+
+def extend_stay(reservation, additional_months):
+    """Prolonge un séjour en cours : ajoute des mois à la durée et le montant
+    correspondant (tarif par lit × lits réservés × mois ajoutés) à la facture
+    existante.
+
+    Contrairement à recalculate_invoice, ceci ne recalcule pas tout depuis
+    zéro — c'est un AJOUT sur une facture valide, donc ça fonctionne même si
+    des paiements existent déjà (ils restent inchangés, seul le total dû
+    augmente).
+    """
+    if additional_months < 1:
+        raise ValueError("La prolongation doit être d'au moins 1 mois.")
+    if not hasattr(reservation, 'invoice'):
+        raise ValueError("Cette réservation n'a pas encore de facture.")
+
+    from apps.reservations.models import add_months
+
+    room = reservation.room
+    price = room.current_price if room else None
+    extra_amount = (price.monthly_rate * reservation.beds_reserved * additional_months) if price else 0
+
+    reservation.duration_months = (reservation.duration_months or 0) + additional_months
+    reservation.desired_end_date = add_months(reservation.desired_start_date, reservation.duration_months)
+    reservation.save(update_fields=['duration_months', 'desired_end_date'])
+
+    invoice = reservation.invoice
+    invoice.stay_amount += extra_amount
+    invoice.total_amount += extra_amount
+    note = f"Prolongation +{additional_months} mois le {timezone.localdate().isoformat()} : +{extra_amount} FCFA."
+    invoice.notes = f'{invoice.notes}\n{note}'.strip() if invoice.notes else note
+    invoice.save(update_fields=['stay_amount', 'total_amount', 'notes', 'updated_at'])
     generate_invoice_pdf(invoice)
     return invoice

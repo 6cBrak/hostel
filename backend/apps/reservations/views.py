@@ -3,7 +3,7 @@ import uuid
 
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.db.models import Q, Sum
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -20,6 +20,7 @@ from apps.hostels.models import Room
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
 from .models import Student, Reservation, CheckIn, CheckOut
+from .services import other_beds_taken
 from .serializers import (
     StudentSerializer, StudentUpdateSerializer,
     ReservationListSerializer, ReservationDetailSerializer, ReservationCreateSerializer,
@@ -109,15 +110,6 @@ class MyStudentDocumentsView(APIView):
         return Response(StudentSerializer(profile).data)
 
 
-def _other_beds_taken(room, reservation):
-    """Lits déjà engagés sur cette chambre par d'AUTRES réservations actives
-    (accepted/confirmed) — sert à valider une affectation sans compter deux
-    fois la réservation qu'on est en train de traiter."""
-    return room.reservations.filter(
-        status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED]
-    ).exclude(pk=reservation.pk).aggregate(total=Sum('beds_reserved'))['total'] or 0
-
-
 class ReservationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
@@ -181,7 +173,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
         Par défaut : séjours en cours (acceptés/confirmés, date de fin non
         atteinte ou non renseignée). ?ended=true : historique — séjours
-        clôturés par check-out (Terminée) OU dont la date de fin est déjà
+        clôturés par check-out ou transfert, OU dont la date de fin est déjà
         passée sans check-out encore effectué (à traiter)."""
         from django.db.models import F
 
@@ -190,7 +182,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
         if request.query_params.get('ended') == 'true':
             queryset = base.filter(
-                Q(status=Reservation.Status.COMPLETED)
+                Q(status__in=[Reservation.Status.COMPLETED, Reservation.Status.TRANSFERRED])
                 | Q(
                     status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED],
                     desired_end_date__lt=today,
@@ -231,7 +223,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
             )
 
         beds_reserved = int(request.data.get('beds_reserved') or reservation.beds_reserved or 1)
-        already_taken = _other_beds_taken(room, reservation)
+        already_taken = other_beds_taken(room, reservation)
         if already_taken + beds_reserved > room.beds_count:
             remaining = max(room.beds_count - already_taken, 0)
             return Response(
@@ -341,7 +333,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
                         {'detail': f"Chambre indisponible ({room.get_status_display()})."}, status=400
                     )
                 beds_reserved = reservation.beds_reserved or 1
-                already_taken = _other_beds_taken(room, reservation)
+                already_taken = other_beds_taken(room, reservation)
                 if already_taken + beds_reserved > room.beds_count:
                     remaining = max(room.beds_count - already_taken, 0)
                     return Response(
@@ -373,6 +365,64 @@ class ReservationViewSet(viewsets.ModelViewSet):
             reservation.save()
 
         return Response(ReservationDetailSerializer(reservation).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsStaff])
+    def extend(self, request, pk=None):
+        """Prolonge un séjour en cours : ajoute des mois à la durée et le
+        montant correspondant à la facture existante (sans toucher aux
+        paiements déjà enregistrés)."""
+        reservation = self.get_object()
+        if reservation.status not in (Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED):
+            return Response({'detail': "Cette réservation n'est pas un séjour actif."}, status=400)
+
+        try:
+            additional_months = int(request.data.get('additional_months'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Nombre de mois invalide.'}, status=400)
+
+        from apps.billing.services import extend_stay
+        try:
+            extend_stay(reservation, additional_months)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
+
+        return Response(ReservationDetailSerializer(reservation).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsStaff])
+    def transfer(self, request, pk=None):
+        """Transfère un locataire vers une autre chambre (éventuellement un
+        autre hostel) : clôture cette réservation ('Transférée') et crée une
+        nouvelle réservation + facture pour la nouvelle chambre."""
+        reservation = self.get_object()
+
+        room_id = request.data.get('room')
+        new_room = Room.objects.filter(pk=room_id).first() if room_id else None
+        if not new_room:
+            return Response({'detail': 'Chambre de destination invalide.'}, status=400)
+
+        try:
+            beds_reserved = int(request.data.get('beds_reserved') or 1)
+            remaining_months = int(request.data.get('remaining_months') or 1)
+        except (TypeError, ValueError):
+            return Response({'detail': 'Lits ou durée invalides.'}, status=400)
+
+        from .services import transfer_reservation
+        try:
+            new_reservation, invoice = transfer_reservation(
+                reservation, new_room, beds_reserved, remaining_months, performed_by=request.user
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
+
+        notify(
+            new_reservation.requester.user,
+            Notification.Type.INVOICE_GENERATED,
+            'Transfert de chambre',
+            f"Vous avez été transféré vers la chambre {new_room.number} ({new_room.hostel.name}). "
+            f"Nouvelle facture {invoice.invoice_number} disponible dans votre espace.",
+            reservation=new_reservation,
+        )
+        return Response(ReservationDetailSerializer(new_reservation).data, status=201)
 
 
 class CheckInViewSet(viewsets.ModelViewSet):

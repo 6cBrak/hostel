@@ -29,3 +29,6 @@ export const proposeAlternative = (id, payload) =>
   api.post(`/reservations/${id}/propose-alternative/`, payload)
 
 export const createCheckOut = (payload) => api.post('/check-outs/', payload)
+export const extendReservation = (id, additionalMonths) =>
+  api.post(`/reservations/${id}/extend/`, { additional_months: additionalMonths })
+export const transferReservation = (id, payload) => api.post(`/reservations/${id}/transfer/`, payload)

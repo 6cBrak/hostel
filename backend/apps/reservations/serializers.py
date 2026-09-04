@@ -70,6 +70,9 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
     alternative_hostel_name = serializers.CharField(source='alternative_hostel.name', read_only=True)
     days_remaining = serializers.SerializerMethodField()
     check_out = serializers.SerializerMethodField()
+    previous_reservation_number = serializers.SerializerMethodField()
+    next_reservation_id = serializers.SerializerMethodField()
+    next_reservation_number = serializers.SerializerMethodField()
 
     class Meta:
         model = Reservation
@@ -79,6 +82,7 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
             'is_group', 'number_of_people', 'beds_reserved', 'members',
             'desired_start_date', 'duration_months', 'desired_end_date', 'days_remaining',
             'status', 'rejection_reason', 'check_out',
+            'previous_reservation_number', 'next_reservation_id', 'next_reservation_number',
             'alternative_hostel', 'alternative_hostel_name', 'alternative_room',
             'alternative_room_detail', 'alternative_external_residence', 'alternative_note',
             'handled_by', 'decided_at', 'created_at', 'updated_at',
@@ -98,6 +102,17 @@ class ReservationDetailSerializer(serializers.ModelSerializer):
         if not hasattr(obj, 'check_out'):
             return None
         return CheckOutSerializer(obj.check_out).data
+
+    def get_previous_reservation_number(self, obj):
+        return obj.previous_reservation.reservation_number if obj.previous_reservation else None
+
+    def get_next_reservation_id(self, obj):
+        next_res = getattr(obj, 'next_reservation', None)
+        return next_res.id if next_res else None
+
+    def get_next_reservation_number(self, obj):
+        next_res = getattr(obj, 'next_reservation', None)
+        return next_res.reservation_number if next_res else None
 
 
 class ReservationCreateSerializer(serializers.ModelSerializer):
