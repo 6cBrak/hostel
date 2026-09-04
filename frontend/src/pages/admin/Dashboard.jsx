@@ -13,14 +13,12 @@ const REPORTS = [
 ]
 
 // Palette catégorielle validée (voir skill dataviz) — ordre fixe, jamais réassigné par valeur.
+// États administratifs uniquement (l'occupation par lit est affichée séparément).
 const ROOM_STATUS_COLORS = {
   available: '#2a78d6', // slot 1 — blue
-  reserved: '#eb6834', // slot 2 — orange
-  occupied: '#1baf7a', // slot 3 — aqua
-  pending: '#eda100', // slot 4 — yellow
-  maintenance: '#e87ba4', // slot 5 — magenta
-  out_of_service: '#008300', // slot 6 — green
-  blocked: '#4a3aa7', // slot 7 — violet
+  maintenance: '#e87ba4', // slot 2 — magenta
+  out_of_service: '#008300', // slot 3 — green
+  blocked: '#4a3aa7', // slot 4 — violet
 }
 const OCCUPANCY_HUE = '#2a78d6' // sequential — 1 hue
 const INVOICED_COLOR = '#2a78d6' // categorical slot 1
@@ -71,14 +69,14 @@ export default function Dashboard() {
       <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
       <p className="mt-1 text-gray-500">Vue d'ensemble de l'activité de SMART HOSTEL ATOMA.</p>
 
-      {/* Parc de chambres */}
+      {/* Parc de chambres — l'occupation se compte désormais par lit, pas par chambre entière */}
       <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-gray-500">Parc de chambres</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <KpiCard label="Hostels" value={stats.total_hostels} />
         <KpiCard label="Chambres" value={stats.total_rooms} />
-        <KpiCard label="Occupées" value={stats.occupied_rooms} tone="amber" />
-        <KpiCard label="Disponibles" value={stats.available_rooms} tone="emerald" />
-        <KpiCard label="En maintenance" value={stats.maintenance_rooms} tone="red" />
+        <KpiCard label="Lits au total" value={stats.total_beds} />
+        <KpiCard label="Lits occupés" value={stats.beds_taken} tone="amber" />
+        <KpiCard label="Lits libres" value={stats.beds_available} tone="emerald" />
         <KpiCard label="Taux d'occupation" value={`${stats.occupancy_rate}%`} />
       </div>
 
@@ -140,7 +138,8 @@ export default function Dashboard() {
             <tr>
               <th className="px-4 py-2">Hostel</th>
               <th className="px-4 py-2 text-right">Chambres</th>
-              <th className="px-4 py-2 text-right">Occupées</th>
+              <th className="px-4 py-2 text-right">Lits</th>
+              <th className="px-4 py-2 text-right">Lits occupés</th>
               <th className="px-4 py-2 text-right">Taux d'occupation</th>
               <th className="px-4 py-2 text-right">Revenus encaissés</th>
             </tr>
@@ -150,7 +149,8 @@ export default function Dashboard() {
               <tr key={h.hostel_id} className="border-b border-gray-100 last:border-0">
                 <td className="px-4 py-2 font-medium text-gray-900">{h.hostel_name}</td>
                 <td className="px-4 py-2 text-right">{h.total_rooms}</td>
-                <td className="px-4 py-2 text-right">{h.occupied_rooms}</td>
+                <td className="px-4 py-2 text-right">{h.total_beds}</td>
+                <td className="px-4 py-2 text-right">{h.beds_taken}</td>
                 <td className="px-4 py-2 text-right">{h.occupancy_rate}%</td>
                 <td className="px-4 py-2 text-right">{formatFCFA(h.revenue)}</td>
               </tr>
