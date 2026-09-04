@@ -181,6 +181,45 @@ class AlternativeResponseSerializer(serializers.Serializer):
     decision = serializers.ChoiceField(choices=['accept', 'refuse', 'request_other'])
 
 
+class TransferHistorySerializer(serializers.ModelSerializer):
+    """Une ligne = une réservation créée par un transfert (previous_reservation
+    renseigné) — pour l'écran Transferts et le rapport Excel associé."""
+
+    student_name = serializers.SerializerMethodField()
+    previous_reservation_number = serializers.SerializerMethodField()
+    previous_hostel_name = serializers.SerializerMethodField()
+    previous_room_number = serializers.SerializerMethodField()
+    hostel_name = serializers.CharField(source='hostel.name', read_only=True)
+    room_number = serializers.SerializerMethodField()
+    handled_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reservation
+        fields = [
+            'id', 'reservation_number', 'student_name',
+            'previous_reservation_number', 'previous_hostel_name', 'previous_room_number',
+            'hostel_name', 'room_number', 'handled_by_name', 'decided_at',
+        ]
+
+    def get_student_name(self, obj):
+        return obj.requester.user.full_name
+
+    def get_previous_reservation_number(self, obj):
+        return obj.previous_reservation.reservation_number if obj.previous_reservation else None
+
+    def get_previous_hostel_name(self, obj):
+        return obj.previous_reservation.hostel.name if obj.previous_reservation else None
+
+    def get_previous_room_number(self, obj):
+        return obj.previous_reservation.room.number if obj.previous_reservation and obj.previous_reservation.room else None
+
+    def get_room_number(self, obj):
+        return obj.room.number if obj.room else None
+
+    def get_handled_by_name(self, obj):
+        return obj.handled_by.full_name if obj.handled_by else None
+
+
 class CheckInSerializer(serializers.ModelSerializer):
     class Meta:
         model = CheckIn

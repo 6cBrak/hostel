@@ -25,7 +25,7 @@ from .serializers import (
     StudentSerializer, StudentUpdateSerializer,
     ReservationListSerializer, ReservationDetailSerializer, ReservationCreateSerializer,
     RejectReservationSerializer, ProposeAlternativeSerializer, AlternativeResponseSerializer,
-    CheckInSerializer, CheckOutSerializer,
+    CheckInSerializer, CheckOutSerializer, TransferHistorySerializer,
 )
 
 
@@ -198,6 +198,24 @@ class ReservationViewSet(viewsets.ModelViewSet):
         queryset = self.filter_queryset(queryset)
         page = self.paginate_queryset(queryset)
         serializer = ReservationListSerializer(page if page is not None else queryset, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsStaff])
+    def transfers(self, request):
+        """Historique des transferts de chambre/hostel — une ligne par réservation
+        née d'un transfert (previous_reservation renseigné)."""
+        queryset = self.filter_queryset(
+            Reservation.objects.filter(previous_reservation__isnull=False)
+            .select_related(
+                'requester__user', 'previous_reservation__hostel', 'previous_reservation__room',
+                'hostel', 'room', 'handled_by',
+            )
+            .order_by('-decided_at')
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = TransferHistorySerializer(page if page is not None else queryset, many=True)
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)

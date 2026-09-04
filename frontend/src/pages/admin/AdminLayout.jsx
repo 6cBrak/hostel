@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { to: '/admin/dashboard', label: 'Tableau de bord' },
   { to: '/admin/reservations', label: 'Demandes de réservation' },
   { to: '/admin/locataires', label: 'Locataires' },
+  { to: '/admin/transferts', label: 'Transferts' },
   { to: '/admin/factures', label: 'Factures' },
   { to: '/admin/hostels', label: 'Hostels' },
   { to: '/admin/chambres', label: 'Chambres' },
