@@ -182,7 +182,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
         queryset = self.filter_queryset(
             self.get_queryset()
-            .filter(status=Reservation.Status.ACCEPTED, room__isnull=False)
+            .filter(status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED], room__isnull=False)
             .order_by(F('desired_end_date').asc(nulls_last=True))
         )
         page = self.paginate_queryset(queryset)
