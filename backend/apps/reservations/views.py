@@ -3,7 +3,7 @@ import uuid
 
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -177,14 +177,24 @@ class ReservationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[IsStaff])
     def tenants(self, request):
         """Étudiants ayant une réservation active avec chambre assignée — pour le
-        suivi des locataires (durée, date de fin, jours restants, relance)."""
+        suivi des locataires (durée, date de fin, jours restants, relance).
+
+        Par défaut : séjours en cours (date de fin non atteinte, ou non renseignée).
+        ?ended=true : historique des séjours dont la date de fin est déjà passée."""
         from django.db.models import F
 
-        queryset = self.filter_queryset(
-            self.get_queryset()
-            .filter(status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED], room__isnull=False)
-            .order_by(F('desired_end_date').asc(nulls_last=True))
+        base = self.get_queryset().filter(
+            status__in=[Reservation.Status.ACCEPTED, Reservation.Status.CONFIRMED], room__isnull=False
         )
+        today = timezone.localdate()
+        if request.query_params.get('ended') == 'true':
+            queryset = base.filter(desired_end_date__lt=today).order_by('-desired_end_date')
+        else:
+            queryset = base.filter(
+                Q(desired_end_date__isnull=True) | Q(desired_end_date__gte=today)
+            ).order_by(F('desired_end_date').asc(nulls_last=True))
+
+        queryset = self.filter_queryset(queryset)
         page = self.paginate_queryset(queryset)
         serializer = ReservationListSerializer(page if page is not None else queryset, many=True)
         if page is not None:

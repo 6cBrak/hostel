@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom'
 import { listTenants } from '../../api/reservations'
 import { useAdminList } from '../../hooks/useAdminList'
 import SearchInput from '../../components/admin/SearchInput'
@@ -23,16 +24,41 @@ function whatsappHref(phone) {
 }
 
 export default function TenantsList() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const ended = searchParams.get('ended') === 'true'
+
+  const extraParams = { ended: ended ? 'true' : 'false' }
   const {
     items: tenants, count, loading, page, setPage, search, setSearch, pageSize, totalPages,
-  } = useAdminList(listTenants)
+  } = useAdminList(listTenants, extraParams, [ended])
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">Locataires</h1>
       <p className="mt-1 text-gray-500">
-        Étudiants actuellement logés — durée, fin de séjour et relance pour prolongation ou changement de chambre.
+        {ended
+          ? 'Historique des séjours dont la date de fin est déjà passée.'
+          : 'Étudiants actuellement logés — durée, fin de séjour et relance pour prolongation ou changement de chambre.'}
       </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => setSearchParams({})}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            !ended ? 'bg-brand-900 text-white' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          En cours
+        </button>
+        <button
+          onClick={() => setSearchParams({ ended: 'true' })}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            ended ? 'bg-brand-900 text-white' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          Terminés
+        </button>
+      </div>
 
       <div className="mt-4">
         <SearchInput value={search} onChange={setSearch} placeholder="Rechercher un locataire…" />
@@ -61,7 +87,7 @@ export default function TenantsList() {
             ) : tenants.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                  Aucun locataire actif pour le moment.
+                  {ended ? 'Aucun séjour terminé pour le moment.' : 'Aucun locataire actif pour le moment.'}
                 </td>
               </tr>
             ) : (
