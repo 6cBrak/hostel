@@ -153,3 +153,40 @@ class RevenueReportView(APIView):
             ['Hostel', 'Montant facturé (FCFA)', 'Montant encaissé (FCFA)', 'Impayés (FCFA)'],
             rows,
         )
+
+
+class TransferHistoryReportView(APIView):
+    """Rapport opérationnel : historique des transferts de chambre/hostel."""
+
+    permission_classes = [IsStaff]
+
+    def get(self, request):
+        transfers = Reservation.objects.filter(previous_reservation__isnull=False).select_related(
+            'requester__user', 'previous_reservation__hostel', 'previous_reservation__room',
+            'hostel', 'room', 'handled_by',
+        ).order_by('-decided_at')
+
+        rows = [
+            [
+                res.requester.user.full_name,
+                res.previous_reservation.reservation_number,
+                res.previous_reservation.hostel.name,
+                res.previous_reservation.room.number if res.previous_reservation.room else '',
+                res.reservation_number,
+                res.hostel.name,
+                res.room.number if res.room else '',
+                res.handled_by.full_name if res.handled_by else '',
+                res.decided_at.strftime('%Y-%m-%d %H:%M') if res.decided_at else '',
+            ]
+            for res in transfers
+        ]
+
+        return _xlsx_response(
+            'transferts.xlsx',
+            [
+                'Étudiant', 'Ancienne réf.', 'Ancien hostel', 'Ancienne chambre',
+                'Nouvelle réf.', 'Nouveau hostel', 'Nouvelle chambre',
+                'Effectué par', 'Date du transfert',
+            ],
+            rows,
+        )

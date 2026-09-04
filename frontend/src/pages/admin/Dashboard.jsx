@@ -10,6 +10,7 @@ const REPORTS = [
   { key: 'reservations', label: 'Liste des réservations', hint: 'Toutes les demandes, tous statuts' },
   { key: 'tenants', label: 'Liste des locataires', hint: 'Étudiants avec une réservation acceptée' },
   { key: 'revenue', label: 'Revenus par hostel', hint: 'Facturé / encaissé / impayés' },
+  { key: 'transfers', label: 'Historique des transferts', hint: 'Chambre/hostel d’origine et de destination' },
 ]
 
 // Palette catégorielle validée (voir skill dataviz) — ordre fixe, jamais réassigné par valeur.

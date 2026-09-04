@@ -7,4 +7,5 @@ urlpatterns = [
     path('reports/reservations/', reports.ReservationsReportView.as_view(), name='report-reservations'),
     path('reports/tenants/', reports.TenantsReportView.as_view(), name='report-tenants'),
     path('reports/revenue/', reports.RevenueReportView.as_view(), name='report-revenue'),
+    path('reports/transfers/', reports.TransferHistoryReportView.as_view(), name='report-transfers'),
 ]

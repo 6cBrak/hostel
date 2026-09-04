@@ -7,6 +7,7 @@ const REPORT_ENDPOINTS = {
   reservations: { url: '/reports/reservations/', filename: 'reservations.xlsx' },
   tenants: { url: '/reports/tenants/', filename: 'locataires.xlsx' },
   revenue: { url: '/reports/revenue/', filename: 'revenus.xlsx' },
+  transfers: { url: '/reports/transfers/', filename: 'transferts.xlsx' },
 }
 
 export async function downloadReport(key) {
